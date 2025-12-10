@@ -4,16 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
     Loader2, Zap, Link, Clock, Play, Facebook, Instagram, Linkedin, 
-    LogIn, Check, Upload, FileText, AlertCircle, Video
+    LogIn, Check, FileText, Video, Image as ImageIcon, X
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient'; 
 import { useUserSession } from '@/hooks/use-user-session'; 
 import { DateTime } from 'luxon';
 import { authenticatedFetch } from '@/lib/api-client';
-
-// TIRO-ONLY FEATURES - REMOVE THIS LINE WHEN GOING LIVE
-//const TIRO_USER_ID = 'b88432ba-e049-4360-96d6-8c248d7446dc';
 
 type Config = {
     id: string | null; 
@@ -32,13 +29,10 @@ type SocialProfile = {
     token_expiry: string | null;
 };
 
-type ReferenceType = 'none' | 'url' | 'video' | 'article';
-
-const TIMEZONES = [
-    'Africa/Johannesburg', 'America/New_York', 'Europe/London', 'Asia/Tokyo', 
-    'Australia/Sydney', 'America/Los_Angeles', 'Europe/Paris', 'Asia/Shanghai',
-    'UTC',
-];
+type ReferenceType = 'none' | 'url' | 'video' | 'image' | 'article';
+type ContentTab = 'social' | 'image' | 'video';
+type VideoSource = 'text' | 'image';
+type Orientation = '16:9' | '9:16' | '1:1';
 
 const SOCIAL_PLATFORMS = [
     { name: 'Facebook', icon: Facebook, key: 'fb', color: 'bg-blue-600', loginUrl: '/api/facebook/login' },
@@ -46,41 +40,62 @@ const SOCIAL_PLATFORMS = [
     { name: 'LinkedIn', icon: Linkedin, key: 'li', color: 'bg-blue-800', loginUrl: '/api/linkedin/login' },
 ];
 
-const PublishingPage = () => {
+const ContentStudioPage = () => {
     const router = useRouter();
     const { user, loading: sessionLoading, session } = useUserSession(); 
     const userId = user?.id;
-    const userDisplayName = user?.user_metadata?.display_name || user?.email || 'Architect-Agent';
     const jwtToken = session?.access_token || '';
 
     const [configs, setConfigs] = useState<Config | null>(null);
     const [userSocialProfiles, setUserSocialProfiles] = useState<Record<string, SocialProfile>>({});
     const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
     
-    // Image Generation Fields
+    // Tab State
+    const [activeTab, setActiveTab] = useState<ContentTab>('social');
+    
+    // Social Post Fields
+    const [socialPrompt, setSocialPrompt] = useState('');
+    const [socialReferenceType, setSocialReferenceType] = useState<ReferenceType>('none');
+    const [socialReferenceUrl, setSocialReferenceUrl] = useState('');
+    const [socialReferenceVideo, setSocialReferenceVideo] = useState('');
+    const [socialReferenceImage, setSocialReferenceImage] = useState('');
+    const [socialReferenceArticle, setSocialReferenceArticle] = useState('');
+    const [socialCategory, setSocialCategory] = useState('');
+    const [socialTags, setSocialTags] = useState<string[]>([]);
+    const [socialTagInput, setSocialTagInput] = useState('');
+    const [socialContentType, setSocialContentType] = useState<'organic' | 'paid'>('organic');
+    const [generateFB, setGenerateFB] = useState(false);
+    const [generateIG, setGenerateIG] = useState(false);
+    const [generateLI, setGenerateLI] = useState(false);
+    const [socialLoading, setSocialLoading] = useState(false);
+    
+    // Image Only Fields
     const [imagePrompt, setImagePrompt] = useState('');
     const [imageReferenceType, setImageReferenceType] = useState<ReferenceType>('none');
     const [imageReferenceUrl, setImageReferenceUrl] = useState('');
     const [imageReferenceVideo, setImageReferenceVideo] = useState('');
+    const [imageReferenceImage, setImageReferenceImage] = useState('');
     const [imageReferenceArticle, setImageReferenceArticle] = useState('');
-    const [onDemandFile, setOnDemandFile] = useState<File | null>(null);
-    const [fileUploadWarning, setFileUploadWarning] = useState(false);
-    const [onDemandLoading, setOnDemandLoading] = useState(false);
+    const [imageCategory, setImageCategory] = useState('');
+    const [imageTags, setImageTags] = useState<string[]>([]);
+    const [imageTagInput, setImageTagInput] = useState('');
+    const [imageLoading, setImageLoading] = useState(false);
     
-    // Platform Selection for Image Generation
-    const [generateFB, setGenerateFB] = useState(false);
-    const [generateIG, setGenerateIG] = useState(false);
-    const [generateLI, setGenerateLI] = useState(false);
-    const [imageContentType, setImageContentType] = useState<'organic' | 'paid'>('organic');
-    
-    // Video Generation Fields
+    // Video Fields
+    const [videoSource, setVideoSource] = useState<VideoSource>('text');
     const [videoPrompt, setVideoPrompt] = useState('');
     const [videoReferenceType, setVideoReferenceType] = useState<ReferenceType>('none');
     const [videoReferenceUrl, setVideoReferenceUrl] = useState('');
     const [videoReferenceVideo, setVideoReferenceVideo] = useState('');
+    const [videoReferenceImage, setVideoReferenceImage] = useState('');
     const [videoReferenceArticle, setVideoReferenceArticle] = useState('');
-    const [videoContentType, setVideoContentType] = useState<'organic' | 'paid'>('organic');
+    const [videoImagePrompt, setVideoImagePrompt] = useState('');
+    const [selectedImageForVideo, setSelectedImageForVideo] = useState('');
+    const [videoOrientation, setVideoOrientation] = useState<Orientation>('16:9');
+    const [videoDuration, setVideoDuration] = useState<'5' | '10' | '15' | '30'>('10');
+    const [videoCategory, setVideoCategory] = useState('');
+    const [videoTags, setVideoTags] = useState<string[]>([]);
+    const [videoTagInput, setVideoTagInput] = useState('');
     const [videoLoading, setVideoLoading] = useState(false);
     
     const [clientConfigId, setClientConfigId] = useState<string | null>(null);
@@ -113,8 +128,6 @@ const PublishingPage = () => {
         
         if (profileError) {
             console.error('Failed to update user_social_profiles:', profileError);
-        } else {
-            console.log('✅ Updated user_social_profiles with selected org:', selectedOrgData);
         }
         
         if (configs?.id) {
@@ -127,8 +140,6 @@ const PublishingPage = () => {
             
             if (error) {
                 console.error('Failed to save LinkedIn org selection:', error);
-            } else {
-                console.log('LinkedIn org saved:', orgUrn === 'personal' ? 'Personal Profile' : orgUrn);
             }
         }
     };
@@ -169,10 +180,8 @@ const PublishingPage = () => {
             if (orgsData && Array.isArray(orgsData) && orgsData.length > 0) {
                 setLinkedinOrgs(orgsData);
             }
-
-            console.log('[Publishing] Social profiles fetched:', profiles);
         } catch (err) {
-            console.error('[Publishing] Failed to fetch social profiles:', err);
+            console.error('[Content Studio] Failed to fetch social profiles:', err);
         }
     };
 
@@ -237,7 +246,6 @@ const PublishingPage = () => {
             if (event.origin !== window.location.origin) return;
             
             if (event.data.success && event.data.platform === platformKey) {
-                console.log(`[Publishing] Received success message for platform: ${platformKey}`);
                 fetchSocialProfiles();
                 popup?.close();
                 window.removeEventListener('message', listener);
@@ -254,101 +262,79 @@ const PublishingPage = () => {
         }, 500);
     };
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            const file = e.target.files[0];
-            const fileType = file.name.split('.').pop()?.toLowerCase();
-            
-            if (fileType !== 'pdf' && fileType !== 'docx' && fileType !== 'doc') {
-                alert('Please upload only PDF or Word documents (.pdf, .doc, .docx)');
-                e.target.value = '';
-                return;
-            }
-            
-            setOnDemandFile(file);
-            setFileUploadWarning(true);
+    // Tag handlers for Social Post
+    const handleAddSocialTag = () => {
+        if (socialTagInput.trim() && socialTags.length < 3 && !socialTags.includes(socialTagInput.trim())) {
+            setSocialTags([...socialTags, socialTagInput.trim()]);
+            setSocialTagInput('');
         }
     };
 
-    const uploadFileToStorage = async (file: File): Promise<{ url: string; type: string; name: string } | null> => {
-        try {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${userId}_${Date.now()}.${fileExt}`;
-            const filePath = fileName;
+    const handleRemoveSocialTag = (tagToRemove: string) => {
+        setSocialTags(socialTags.filter(tag => tag !== tagToRemove));
+    };
 
-            const { error: uploadError } = await supabase.storage
-                .from('one-time-uploads')
-                .upload(filePath, file, { 
-                    cacheControl: '3600', 
-                    upsert: false 
-                });
-
-            if (uploadError) {
-                console.error('File upload error:', uploadError);
-                throw uploadError;
-            }
-
-            const { data: publicUrlData } = supabase.storage
-                .from('one-time-uploads')
-                .getPublicUrl(filePath);
-
-            return {
-                url: publicUrlData.publicUrl,
-                type: fileExt || 'unknown',
-                name: file.name
-            };
-        } catch (error) {
-            console.error('Failed to upload file:', error);
-            return null;
+    // Tag handlers for Image Only
+    const handleAddImageTag = () => {
+        if (imageTagInput.trim() && imageTags.length < 3 && !imageTags.includes(imageTagInput.trim())) {
+            setImageTags([...imageTags, imageTagInput.trim()]);
+            setImageTagInput('');
         }
     };
 
-    const handleOnDemandPost = async () => {
+    const handleRemoveImageTag = (tagToRemove: string) => {
+        setImageTags(imageTags.filter(tag => tag !== tagToRemove));
+    };
+
+    // Tag handlers for Video
+    const handleAddVideoTag = () => {
+        if (videoTagInput.trim() && videoTags.length < 3 && !videoTags.includes(videoTagInput.trim())) {
+            setVideoTags([...videoTags, videoTagInput.trim()]);
+            setVideoTagInput('');
+        }
+    };
+
+    const handleRemoveVideoTag = (tagToRemove: string) => {
+        setVideoTags(videoTags.filter(tag => tag !== tagToRemove));
+    };
+
+    const handleSocialPostGeneration = async () => {
         if (!clientConfigId) {
             alert("Client Config ID is missing.");
             return;
         }
 
-        // Validation: Prompt is required
-        if (!imagePrompt.trim()) {
+        if (!socialPrompt.trim()) {
             alert("Prompt is required.");
             return;
         }
 
-        // Validation: At least one platform must be selected
         if (!generateFB && !generateIG && !generateLI) {
-            alert("Please select at least one platform to generate content for.");
+            alert("Please select at least one platform.");
             return;
         }
 
-        setOnDemandLoading(true);
+        setSocialLoading(true);
 
         try {
-            let fileData = null;
-            
-            if (onDemandFile) {
-                fileData = await uploadFileToStorage(onDemandFile);
-                if (!fileData) {
-                    throw new Error('File upload failed');
-                }
-            }
-
             const payload = {
                 clientConfigId,
-                prompt: imagePrompt.trim(),
-                referenceType: imageReferenceType,
-                referenceUrl: imageReferenceType === 'url' ? imageReferenceUrl.trim() || null : null,
-                referenceVideo: imageReferenceType === 'video' ? imageReferenceVideo.trim() || null : null,
-                referenceArticle: imageReferenceType === 'article' ? imageReferenceArticle.trim() || null : null,
-                oneTimeFile: fileData || null,
+                prompt: socialPrompt.trim(),
+                referenceType: socialReferenceType,
+                referenceUrl: socialReferenceType === 'url' ? socialReferenceUrl.trim() || null : null,
+                referenceVideo: socialReferenceType === 'video' ? socialReferenceVideo.trim() || null : null,
+                referenceImage: socialReferenceType === 'image' ? socialReferenceImage.trim() || null : null,
+                referenceArticle: socialReferenceType === 'article' ? socialReferenceArticle.trim() || null : null,
+                category: socialCategory.trim() || null,
+                tags: socialTags,
                 generate_FB: generateFB,
                 generate_IG: generateIG,
                 generate_LI: generateLI,
-                organic: imageContentType === 'organic',
-                paid: imageContentType === 'paid',
+                organic: socialContentType === 'organic',
+                paid: socialContentType === 'paid',
             };
 
-            console.log('[Publishing] Sending image generation payload:', payload);
+            console.log('[Content Studio] Social Post payload:', payload);
 
             const response = await authenticatedFetch('/api/n8n/post-now', {
                 method: 'POST',
@@ -358,25 +344,86 @@ const PublishingPage = () => {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || "Post Now API failed");
+                throw new Error(data.error || "Social post generation failed");
+            }
+
+            alert('Social post generation request sent successfully!');
+            
+            // Reset form
+            setSocialPrompt('');
+            setSocialReferenceType('none');
+            setSocialReferenceUrl('');
+            setSocialReferenceVideo('');
+            setSocialReferenceImage('');
+            setSocialReferenceArticle('');
+            setSocialCategory('');
+            setSocialTags([]);
+            setGenerateFB(false);
+            setGenerateIG(false);
+            setGenerateLI(false);
+        } catch (error) {
+            console.error("Social Post Generation Error:", error);
+            alert('Failed to send social post generation request.');
+        } finally {
+            setSocialLoading(false);
+        }
+    };
+
+    const handleImageOnlyGeneration = async () => {
+        if (!clientConfigId) {
+            alert("Client Config ID is missing.");
+            return;
+        }
+
+        if (!imagePrompt.trim()) {
+            alert("Prompt is required.");
+            return;
+        }
+
+        setImageLoading(true);
+
+        try {
+            const payload = {
+                clientConfigId,
+                prompt: imagePrompt.trim(),
+                referenceType: imageReferenceType,
+                referenceUrl: imageReferenceType === 'url' ? imageReferenceUrl.trim() || null : null,
+                referenceVideo: imageReferenceType === 'video' ? imageReferenceVideo.trim() || null : null,
+                referenceImage: imageReferenceType === 'image' ? imageReferenceImage.trim() || null : null,
+                referenceArticle: imageReferenceType === 'article' ? imageReferenceArticle.trim() || null : null,
+                category: imageCategory.trim() || null,
+                tags: imageTags,
+            };
+
+            console.log('[Content Studio] Image Only payload:', payload);
+
+            const response = await authenticatedFetch('/api/n8n/image-only', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || "Image generation failed");
             }
 
             alert('Image generation request sent successfully!');
+            
+            // Reset form
             setImagePrompt('');
             setImageReferenceType('none');
             setImageReferenceUrl('');
             setImageReferenceVideo('');
+            setImageReferenceImage('');
             setImageReferenceArticle('');
-            setOnDemandFile(null);
-            setGenerateFB(false);
-            setGenerateIG(false);
-            setGenerateLI(false);
-            setFileUploadWarning(false);
+            setImageCategory('');
+            setImageTags([]);
         } catch (error) {
-            console.error("On-Demand Post Error:", error);
+            console.error("Image Only Generation Error:", error);
             alert('Failed to send image generation request.');
         } finally {
-            setOnDemandLoading(false);
+            setImageLoading(false);
         }
     };
 
@@ -386,9 +433,13 @@ const PublishingPage = () => {
             return;
         }
 
-        // Validation: Prompt is required
-        if (!videoPrompt.trim()) {
+        if (videoSource === 'text' && !videoPrompt.trim()) {
             alert("Video prompt is required.");
+            return;
+        }
+
+        if (videoSource === 'image' && !videoImagePrompt.trim()) {
+            alert("Video description is required.");
             return;
         }
 
@@ -397,18 +448,23 @@ const PublishingPage = () => {
         try {
             const payload = {
                 clientConfigId,
-                videoPrompt: videoPrompt.trim(),
-                referenceType: videoReferenceType,
-                referenceUrl: videoReferenceType === 'url' ? videoReferenceUrl.trim() || null : null,
-                referenceVideo: videoReferenceType === 'video' ? videoReferenceVideo.trim() || null : null,
-                referenceArticle: videoReferenceType === 'article' ? videoReferenceArticle.trim() || null : null,
-                organic: videoContentType === 'organic',
-                paid: videoContentType === 'paid',
+                videoSource,
+                prompt: videoSource === 'text' ? videoPrompt.trim() : videoImagePrompt.trim(),
+                referenceType: videoSource === 'text' ? videoReferenceType : 'none',
+                referenceUrl: videoSource === 'text' && videoReferenceType === 'url' ? videoReferenceUrl.trim() || null : null,
+                referenceVideo: videoSource === 'text' && videoReferenceType === 'video' ? videoReferenceVideo.trim() || null : null,
+                referenceImage: videoSource === 'text' && videoReferenceType === 'image' ? videoReferenceImage.trim() || null : null,
+                referenceArticle: videoSource === 'text' && videoReferenceType === 'article' ? videoReferenceArticle.trim() || null : null,
+                sourceImage: videoSource === 'image' ? selectedImageForVideo || null : null,
+                orientation: videoOrientation,
+                duration: videoDuration,
+                category: videoCategory.trim() || null,
+                tags: videoTags,
             };
 
-            console.log('[Publishing] Sending video generation payload:', payload);
+            console.log('[Content Studio] Video payload:', payload);
 
-            const response = await authenticatedFetch('/api/n8n/video-gen-on-demand', {
+            const response = await authenticatedFetch('/api/n8n/video-gen', {
                 method: 'POST',
                 body: JSON.stringify(payload),
             });
@@ -416,15 +472,22 @@ const PublishingPage = () => {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || "Video generation API failed");
+                throw new Error(data.error || "Video generation failed");
             }
 
             alert('Video generation request sent successfully!');
+            
+            // Reset form
             setVideoPrompt('');
+            setVideoImagePrompt('');
             setVideoReferenceType('none');
             setVideoReferenceUrl('');
             setVideoReferenceVideo('');
+            setVideoReferenceImage('');
             setVideoReferenceArticle('');
+            setSelectedImageForVideo('');
+            setVideoCategory('');
+            setVideoTags([]);
         } catch (error) {
             console.error("Video Generation Error:", error);
             alert('Failed to send video generation request.');
@@ -433,37 +496,9 @@ const PublishingPage = () => {
         }
     };
 
-    const handleScheduleSave = async () => {
-        if (!configs || !userId) return;
-        setIsSaving(true);
-
-        try {
-            const payload = {
-                action: 'schedule',
-                messageId: configs.id,
-                time: configs.schedule_time,
-                schedule_posts: configs.schedule_posts,
-                token: jwtToken
-            };
-
-            const response = await authenticatedFetch('/api/schedule', {
-                method: 'POST',
-                body: JSON.stringify(payload),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to schedule via QStash');
-            }
-
-            alert(`Schedule saved and QStash triggered successfully!`);
-        } catch (err) {
-            console.error('Schedule Save Error:', err);
-            alert('Failed to save schedule. Check console.');
-        } finally {
-            setIsSaving(false);
-        }
+    const scrollToImageTab = () => {
+        setActiveTab('image');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     if (sessionLoading || isLoading || !configs) {
@@ -475,17 +510,13 @@ const PublishingPage = () => {
         );
     }
 
-    const nextScheduledTime = configs.schedule_posts 
-        ? DateTime.local().setZone(configs.user_timezone).toISODate() + 'T' + configs.schedule_time 
-        : null;
-
     return (
         <>
             <div className="space-y-6">
                 <div className="flex justify-between items-center pb-4 border-b border-gray-800">
                     <div>
-                        <h2 className="text-3xl font-mono text-white">Agent Publishing</h2>
-                        <p className="text-sm text-gray-400 mt-1">Manage social media connections and set up scheduled or on-demand posting.</p>
+                        <h2 className="text-3xl font-mono text-white">Content Studio</h2>
+                        <p className="text-sm text-gray-400 mt-1">Create social posts, images, and videos for your brand.</p>
                     </div>
                 </div>
 
@@ -558,7 +589,7 @@ const PublishingPage = () => {
                         <motion.div 
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: 0.15 }}
+                            transition={{ duration: 0.5, delay: 0.1 }}
                             className="bg-[#10101d] p-8 rounded-xl shadow-2xl border border-gray-800 space-y-6"
                         >
                             <h2 className="text-2xl font-mono text-white border-b border-gray-700 pb-3 flex items-center">
@@ -606,401 +637,814 @@ const PublishingPage = () => {
                         </motion.div>
                     )}
                     
-                    {/* ONE-TIME IMAGE POST GENERATION */}
+                    {/* CONTENT STUDIO TABS */}
                     <motion.div 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5, delay: 0.1 }}
+                        transition={{ duration: 0.5, delay: 0.15 }}
                         className="bg-[#10101d] p-8 rounded-xl shadow-2xl border border-gray-800 space-y-6"
                     >
-                        <h2 className="text-2xl font-mono text-white border-b border-gray-700 pb-3 flex items-center">
-                            <Play className="w-6 h-6 mr-3 text-[#5ccfa2]" /> One-Time Image Post Generation
+                        <h2 className="text-2xl font-mono text-white border-b border-gray-700 pb-3">
+                            What do you want to create?
                         </h2>
 
-                        <div className="space-y-6">
-                            {/* Prompt - Required */}
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-sm text-gray-400 flex items-center">
-                                    <Zap className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Prompt <span className="text-red-500 ml-1">*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    value={imagePrompt}
-                                    onChange={(e) => setImagePrompt(e.target.value)}
-                                    placeholder="Enter your content generation prompt (required)"
-                                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                    required
-                                />
-                            </div>
+                        {/* Tab Buttons */}
+                        <div className="flex space-x-4">
+                            <button
+                                onClick={() => setActiveTab('social')}
+                                className={`flex-1 py-4 px-6 rounded-lg font-semibold transition-all flex items-center justify-center ${
+                                    activeTab === 'social'
+                                        ? 'bg-[#5ccfa2] text-black'
+                                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                }`}
+                            >
+                                <Play className="w-5 h-5 mr-2" />
+                                Social Post Generation
+                            </button>
 
-                            {/* Reference Type Dropdown */}
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-sm text-gray-400 flex items-center">
-                                    What do you want to base your content on? (Optional)
-                                </label>
-                                <select
-                                    value={imageReferenceType}
-                                    onChange={(e) => {
-                                        setImageReferenceType(e.target.value as ReferenceType);
-                                        // Reset all reference fields when type changes
-                                        setImageReferenceUrl('');
-                                        setImageReferenceVideo('');
-                                        setImageReferenceArticle('');
-                                    }}
-                                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                            <button
+                                onClick={() => setActiveTab('image')}
+                                className={`flex-1 py-4 px-6 rounded-lg font-semibold transition-all flex items-center justify-center ${
+                                    activeTab === 'image'
+                                        ? 'bg-[#5ccfa2] text-black'
+                                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                }`}
+                            >
+                                <ImageIcon className="w-5 h-5 mr-2" />
+                                Image Only Generation
+                            </button>
+
+                            <button
+                                onClick={() => setActiveTab('video')}
+                                className={`flex-1 py-4 px-6 rounded-lg font-semibold transition-all flex items-center justify-center ${
+                                    activeTab === 'video'
+                                        ? 'bg-[#5ccfa2] text-black'
+                                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                }`}
+                            >
+                                <Video className="w-5 h-5 mr-2" />
+                                Video Generation
+                            </button>
+                        </div>
+
+                        {/* Tab Content */}
+                        <AnimatePresence mode="wait">
+                            {activeTab === 'social' && (
+                                <motion.div
+                                    key="social"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="space-y-6 pt-4"
                                 >
-                                    <option value="none">None - Just use the prompt</option>
-                                    <option value="url">Website URL</option>
-                                    <option value="video">Video</option>
-                                    <option value="article">Article Content</option>
-                                </select>
-                            </div>
+                                    <p className="text-sm text-gray-400 italic">
+                                        Generate an image + caption tailored to a specific platform
+                                    </p>
 
-                            {/* Conditional Reference Input Fields */}
-                            {imageReferenceType === 'url' && (
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-sm text-gray-400 flex items-center">
-                                        <Link className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Website URL
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={imageReferenceUrl}
-                                        onChange={(e) => setImageReferenceUrl(e.target.value)}
-                                        placeholder="Insert link"
-                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                    />
-                                </div>
-                            )}
-
-                            {imageReferenceType === 'video' && (
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-sm text-gray-400 flex items-center">
-                                        <Video className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Video URL
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={imageReferenceVideo}
-                                        onChange={(e) => setImageReferenceVideo(e.target.value)}
-                                        placeholder="Insert a link to your video (only video links are currently accepted)"
-                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                    />
-                                </div>
-                            )}
-
-                            {imageReferenceType === 'article' && (
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-sm text-gray-400 flex items-center">
-                                        <FileText className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Article Content
-                                    </label>
-                                    <textarea
-                                        value={imageReferenceArticle}
-                                        onChange={(e) => setImageReferenceArticle(e.target.value)}
-                                        placeholder="Paste your article here"
-                                        rows={6}
-                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none"
-                                    />
-                                </div>
-                            )}
-
-                            <div className="flex flex-col space-y-2">
-    <label className="text-sm text-gray-400 flex items-center">
-        <Upload className="w-4 h-4 mr-2 text-[#5ccfa2]" /> File Upload (Optional)
-    </label>
-                                    <div className="relative">
+                                    {/* Prompt */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400 flex items-center">
+                                            <Zap className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Prompt <span className="text-red-500 ml-1">*</span>
+                                        </label>
                                         <input
-                                            type="file"
-                                            accept=".pdf,.doc,.docx"
-                                            onChange={handleFileSelect}
-                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#5ccfa2] file:text-black hover:file:bg-[#45a881] cursor-pointer"
+                                            type="text"
+                                            value={socialPrompt}
+                                            onChange={(e) => setSocialPrompt(e.target.value)}
+                                            placeholder="Describe what you want to create..."
+                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                            required
                                         />
-                                        {onDemandFile && (
-                                            <p className="text-xs text-gray-400 mt-2">
-                                                Selected: {onDemandFile.name}
-                                            </p>
+                                    </div>
+
+                                    {/* Platform Selection */}
+                                    <div className="flex flex-col space-y-3">
+                                        <label className="text-sm text-gray-400 font-semibold">
+                                            Select platforms: <span className="text-red-500">*</span>
+                                        </label>
+                                        <div className="flex items-center space-x-6">
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={generateFB}
+                                                    onChange={(e) => setGenerateFB(e.target.checked)}
+                                                    className="w-5 h-5 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]"
+                                                />
+                                                <Facebook className="w-6 h-6 text-blue-500" />
+                                                <span className="text-white">Facebook</span>
+                                            </label>
+
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={generateIG}
+                                                    onChange={(e) => setGenerateIG(e.target.checked)}
+                                                    className="w-5 h-5 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]"
+                                                />
+                                                <Instagram className="w-6 h-6 text-pink-500" />
+                                                <span className="text-white">Instagram</span>
+                                            </label>
+
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={generateLI}
+                                                    onChange={(e) => setGenerateLI(e.target.checked)}
+                                                    className="w-5 h-5 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]"
+                                                />
+                                                <Linkedin className="w-6 h-6 text-blue-700" />
+                                                <span className="text-white">LinkedIn</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {/* Reference Type Dropdown */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400 flex items-center">
+                                            Reference (Optional)
+                                        </label>
+                                        <select
+                                            value={socialReferenceType}
+                                            onChange={(e) => {
+                                                setSocialReferenceType(e.target.value as ReferenceType);
+                                                setSocialReferenceUrl('');
+                                                setSocialReferenceVideo('');
+                                                setSocialReferenceImage('');
+                                                setSocialReferenceArticle('');
+                                            }}
+                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                        >
+                                            <option value="none">None</option>
+                                            <option value="url">URL</option>
+                                            <option value="video">Video</option>
+                                            <option value="image">Image</option>
+                                            <option value="article">Article Content</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Conditional Reference Input Fields */}
+                                    {socialReferenceType === 'url' && (
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-sm text-gray-400 flex items-center">
+                                                <Link className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Website URL
+                                            </label>
+                                            <input
+                                                type="url"
+                                                value={socialReferenceUrl}
+                                                onChange={(e) => setSocialReferenceUrl(e.target.value)}
+                                                placeholder="https://example.com"
+                                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {socialReferenceType === 'video' && (
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-sm text-gray-400 flex items-center">
+                                                <Video className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Video URL
+                                            </label>
+                                            <input
+                                                type="url"
+                                                value={socialReferenceVideo}
+                                                onChange={(e) => setSocialReferenceVideo(e.target.value)}
+                                                placeholder="Only video URL supported"
+                                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {socialReferenceType === 'image' && (
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-sm text-gray-400 flex items-center">
+                                                <ImageIcon className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Image URL
+                                            </label>
+                                            <input
+                                                type="url"
+                                                value={socialReferenceImage}
+                                                onChange={(e) => setSocialReferenceImage(e.target.value)}
+                                                placeholder="https://example.com/image.jpg"
+                                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {socialReferenceType === 'article' && (
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-sm text-gray-400 flex items-center">
+                                                <FileText className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Article Content
+                                            </label>
+                                            <textarea
+                                                value={socialReferenceArticle}
+                                                onChange={(e) => setSocialReferenceArticle(e.target.value)}
+                                                placeholder="Paste your article here"
+                                                rows={6}
+                                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Category */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400">Category (Optional)</label>
+                                        <input
+                                            type="text"
+                                            value={socialCategory}
+                                            onChange={(e) => setSocialCategory(e.target.value)}
+                                            placeholder="e.g., Marketing, Product, Announcement"
+                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                        />
+                                    </div>
+
+                                    {/* Tags */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400">Tags (Optional, max 3)</label>
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="text"
+                                                value={socialTagInput}
+                                                onChange={(e) => setSocialTagInput(e.target.value)}
+                                                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSocialTag())}
+                                                placeholder="Add a tag and press Enter"
+                                                disabled={socialTags.length >= 3}
+                                                className="flex-1 bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] disabled:opacity-50"
+                                            />
+                                            <button
+                                                onClick={handleAddSocialTag}
+                                                disabled={socialTags.length >= 3 || !socialTagInput.trim()}
+                                                className="px-4 py-3 bg-[#5ccfa2] text-black rounded-lg hover:bg-[#45a881] disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                                            >
+                                                Add
+                                            </button>
+                                        </div>
+                                        {socialTags.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {socialTags.map((tag) => (
+                                                    <span
+                                                        key={tag}
+                                                        className="bg-[#5ccfa2] text-black px-3 py-1 rounded-full text-sm font-semibold flex items-center space-x-2"
+                                                    >
+                                                        <span>{tag}</span>
+                                                        <X
+                                                            className="w-4 h-4 cursor-pointer hover:text-red-600"
+                                                            onClick={() => handleRemoveSocialTag(tag)}
+                                                        />
+                                                    </span>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
-                                    <p className="text-xs text-yellow-500 italic flex items-center">
-                                        <AlertCircle className="w-3 h-3 mr-1" />
-                                        This feature is currently in beta.
-                                    </p>
-                                </div>
-                            
 
-                            {/* Content Type Dropdown */}
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-sm text-gray-400 flex items-center">
-                                    What's this image for?
-                                </label>
-                                <select
-                                    value={imageContentType}
-                                    onChange={(e) => setImageContentType(e.target.value as 'organic' | 'paid')}
-                                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                >
-                                    <option value="organic">Organic Social Media</option>
-                                    <option value="paid">Paid Social Media</option>
-                                </select>
-                            </div>
+                                    {/* Content Type */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400">Content Type</label>
+                                        <div className="flex items-center space-x-4">
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="socialContentType"
+                                                    checked={socialContentType === 'organic'}
+                                                    onChange={() => setSocialContentType('organic')}
+                                                    className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 focus:ring-[#5ccfa2]"
+                                                />
+                                                <span className="text-white">Organic</span>
+                                            </label>
 
-                            {/* Platform Selection */}
-                            <div className="flex flex-col space-y-3">
-                                <label className="text-sm text-gray-400 font-semibold">
-                                    Select which platforms you want to generate image content for:
-                                </label>
-                                <div className="flex items-center space-x-6">
-                                    <label className="flex items-center space-x-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={generateFB}
-                                            onChange={(e) => setGenerateFB(e.target.checked)}
-                                            className="w-5 h-5 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]"
-                                        />
-                                        <Facebook className="w-6 h-6 text-blue-500" />
-                                        <span className="text-white">Facebook</span>
-                                    </label>
-
-                                    <label className="flex items-center space-x-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={generateIG}
-                                            onChange={(e) => setGenerateIG(e.target.checked)}
-                                            className="w-5 h-5 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]"
-                                        />
-                                        <Instagram className="w-6 h-6 text-pink-500" />
-                                        <span className="text-white">Instagram</span>
-                                    </label>
-
-                                    <label className="flex items-center space-x-2 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={generateLI}
-                                            onChange={(e) => setGenerateLI(e.target.checked)}
-                                            className="w-5 h-5 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]"
-                                        />
-                                        <Linkedin className="w-6 h-6 text-blue-700" />
-                                        <span className="text-white">LinkedIn</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            {fileUploadWarning && (
-                                <motion.div 
-                                    initial={{ opacity: 0, y: -10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4 flex items-start space-x-3"
-                                >
-                                    <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm text-yellow-200 font-semibold">File Upload Notice</p>
-                                        <p className="text-xs text-yellow-300 mt-1">
-                                            Your file will be uploaded and processed. This feature is in beta.
-                                        </p>
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="socialContentType"
+                                                    checked={socialContentType === 'paid'}
+                                                    onChange={() => setSocialContentType('paid')}
+                                                    className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 focus:ring-[#5ccfa2]"
+                                                />
+                                                <span className="text-white">Paid</span>
+                                            </label>
+                                        </div>
                                     </div>
+
+                                    {/* Generate Button */}
+                                    <button
+                                        onClick={handleSocialPostGeneration}
+                                        disabled={socialLoading}
+                                        className={`w-full px-8 py-3 rounded-xl font-bold transition-all flex items-center justify-center ${
+                                            socialLoading
+                                                ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                                                : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'
+                                        }`}
+                                    >
+                                        {socialLoading ? (
+                                            <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                                        ) : (
+                                            <Zap className="w-5 h-5 mr-3" />
+                                        )}
+                                        {socialLoading ? 'Generating...' : 'Generate Social Post'}
+                                    </button>
                                 </motion.div>
                             )}
 
-                            <button
-                                onClick={handleOnDemandPost}
-                                disabled={onDemandLoading}
-                                className={`w-full px-8 py-3 rounded-xl font-bold transition-all flex items-center justify-center ${onDemandLoading ? 'bg-gray-500 text-gray-300 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}`}
-                            >
-                                {onDemandLoading ? (
-                                    <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                                ) : (
-                                    <Zap className="w-5 h-5 mr-3" />
-                                )}
-                                {onDemandLoading ? 'Sending Request...' : 'Generate Image Now'}
-                            </button>
-                        </div>
-                    </motion.div>
-
-                    
-                        <motion.div 
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: 0.15 }}
-                            className="bg-[#10101d] p-8 rounded-xl shadow-2xl border border-yellow-600 space-y-6"
-                        >
-                            <h2 className="text-2xl font-mono text-white border-b border-gray-700 pb-3 flex items-center">
-                                <Video className="w-6 h-6 mr-3 text-yellow-500" /> One-Time Video Generation - TIRO ONLY
-                            </h2>
-
-                            <div className="space-y-6">
-                                {/* Video Prompt - Required */}
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-sm text-gray-400 flex items-center">
-                                        <Zap className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Video Prompt <span className="text-red-500 ml-1">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={videoPrompt}
-                                        onChange={(e) => setVideoPrompt(e.target.value)}
-                                        placeholder="Enter your video generation prompt (required)"
-                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                        required
-                                    />
-                                </div>
-
-                                {/* Reference Type Dropdown */}
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-sm text-gray-400 flex items-center">
-                                        What do you want to base your video on? (Optional)
-                                    </label>
-                                    <select
-                                        value={videoReferenceType}
-                                        onChange={(e) => {
-                                            setVideoReferenceType(e.target.value as ReferenceType);
-                                            // Reset all reference fields when type changes
-                                            setVideoReferenceUrl('');
-                                            setVideoReferenceVideo('');
-                                            setVideoReferenceArticle('');
-                                        }}
-                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                    >
-                                        <option value="none">None - Just use the prompt</option>
-                                        <option value="url">Website URL</option>
-                                        <option value="video">Video</option>
-                                        <option value="article">Article Content</option>
-                                    </select>
-                                </div>
-
-                                {/* Conditional Reference Input Fields */}
-                                {videoReferenceType === 'url' && (
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-sm text-gray-400 flex items-center">
-                                            <Link className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Website URL
-                                        </label>
-                                        <input
-                                            type="url"
-                                            value={videoReferenceUrl}
-                                            onChange={(e) => setVideoReferenceUrl(e.target.value)}
-                                            placeholder="Insert link"
-                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                        />
-                                    </div>
-                                )}
-
-                                {videoReferenceType === 'video' && (
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-sm text-gray-400 flex items-center">
-                                            <Video className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Video URL
-                                        </label>
-                                        <input
-                                            type="url"
-                                            value={videoReferenceVideo}
-                                            onChange={(e) => setVideoReferenceVideo(e.target.value)}
-                                            placeholder="Insert a link to your video (only video links are currently accepted)"
-                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                        />
-                                    </div>
-                                )}
-
-                                {videoReferenceType === 'article' && (
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-sm text-gray-400 flex items-center">
-                                            <FileText className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Article Content
-                                        </label>
-                                        <textarea
-                                            value={videoReferenceArticle}
-                                            onChange={(e) => setVideoReferenceArticle(e.target.value)}
-                                            placeholder="Paste your article here"
-                                            rows={6}
-                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none"
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Content Type Dropdown */}
-                                <div className="flex flex-col space-y-2">
-                                    <label className="text-sm text-gray-400 flex items-center">
-                                        What's this video for?
-                                    </label>
-                                    <select
-                                        value={videoContentType}
-                                        onChange={(e) => setVideoContentType(e.target.value as 'organic' | 'paid')}
-                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                    >
-                                        <option value="organic">Organic Social Media</option>
-                                        <option value="paid">Paid Social Media</option>
-                                    </select>
-                                </div>
-
-                                <button
-                                    onClick={handleVideoGeneration}
-                                    disabled={videoLoading}
-                                    className={`w-full px-8 py-3 rounded-xl font-bold transition-all flex items-center justify-center ${videoLoading ? 'bg-gray-500 text-gray-300 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+                            {activeTab === 'image' && (
+                                <motion.div
+                                    key="image"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="space-y-6 pt-4"
                                 >
-                                    {videoLoading ? (
-                                        <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                                    ) : (
-                                        <Video className="w-5 h-5 mr-3" />
-                                    )}
-                                    {videoLoading ? 'Generating Video...' : 'Generate Video Now'}
-                                </button>
-                            </div>
-                        </motion.div>
-                    
+                                    <p className="text-sm text-gray-400 italic">
+                                        Not sure if you want an image or video yet? Generate a standalone image and you can convert it into a social media image or video post later
+                                    </p>
 
-                    {/*  AUTOMATED SCHEDULING */}
-                    
-                        <motion.div 
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5, delay: 0.2 }}
-                            className="bg-[#10101d] p-8 rounded-xl shadow-2xl border border-gray-800 space-y-6"
-                        >
-                            <h2 className="text-2xl font-mono text-white border-b border-gray-700 pb-3 flex items-center">
-                                <Clock className="w-6 h-6 mr-3 text-[#5ccfa2]" /> Automated Scheduling - TIRO ONLY
-                            </h2>
-
-                            <div className="flex flex-col space-y-4">
-                                <label className="text-sm text-gray-400">Enable Scheduled Posting?</label>
-                                <div className="flex items-center space-x-4">
-                                    <div
-                                        onClick={() => setConfigs(prev => prev ? { ...prev, schedule_posts: !prev.schedule_posts } : prev)}
-                                        className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${configs.schedule_posts ? 'bg-[#5ccfa2]' : 'bg-gray-500'}`}
-                                    >
-                                        <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${configs.schedule_posts ? 'translate-x-6' : 'translate-x-0'}`} />
+                                    {/* Prompt */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400 flex items-center">
+                                            <Zap className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Prompt <span className="text-red-500 ml-1">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={imagePrompt}
+                                            onChange={(e) => setImagePrompt(e.target.value)}
+                                            placeholder="Describe the image you want to create..."
+                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                            required
+                                        />
                                     </div>
 
-                                    <input
-                                        type="time"
-                                        value={configs.schedule_time}
-                                        onChange={(e) => setConfigs(prev => prev ? { ...prev, schedule_time: e.target.value } : prev)}
-                                        className="bg-[#010112] border border-gray-700 text-white p-2 rounded-lg"
-                                        style={{ colorScheme: 'dark' }}
-                                    />
+                                    {/* Reference Type Dropdown */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400 flex items-center">
+                                            Reference (Optional)
+                                        </label>
+                                        <select
+                                            value={imageReferenceType}
+                                            onChange={(e) => {
+                                                setImageReferenceType(e.target.value as ReferenceType);
+                                                setImageReferenceUrl('');
+                                                setImageReferenceVideo('');
+                                                setImageReferenceImage('');
+                                                setImageReferenceArticle('');
+                                            }}
+                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                        >
+                                            <option value="none">None</option>
+                                            <option value="url">URL</option>
+                                            <option value="video">Video</option>
+                                            <option value="image">Image</option>
+                                            <option value="article">Article Content</option>
+                                        </select>
+                                    </div>
 
-                                    <select
-                                        value={configs.user_timezone}
-                                        onChange={(e) => setConfigs(prev => prev ? { ...prev, user_timezone: e.target.value } : prev)}
-                                        className="bg-[#010112] border border-gray-700 text-white p-2 rounded-lg"
-                                    >
-                                        {TIMEZONES.map(tz => (
-                                            <option key={tz} value={tz}>{tz}</option>
-                                        ))}
-                                    </select>
+                                    {/* Conditional Reference Input Fields */}
+                                    {imageReferenceType === 'url' && (
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-sm text-gray-400 flex items-center">
+                                                <Link className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Website URL
+                                            </label>
+                                            <input
+                                                type="url"
+                                                value={imageReferenceUrl}
+                                                onChange={(e) => setImageReferenceUrl(e.target.value)}
+                                                placeholder="https://example.com"
+                                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                            />
+                                        </div>
+                                    )}
 
+                                    {imageReferenceType === 'video' && (
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-sm text-gray-400 flex items-center">
+                                                <Video className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Video URL
+                                            </label>
+                                            <input
+                                                type="url"
+                                                value={imageReferenceVideo}
+                                                onChange={(e) => setImageReferenceVideo(e.target.value)}
+                                                placeholder="Only video URL supported"
+                                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {imageReferenceType === 'image' && (
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-sm text-gray-400 flex items-center">
+                                                <ImageIcon className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Image URL
+                                            </label>
+                                            <input
+                                                type="url"
+                                                value={imageReferenceImage}
+                                                onChange={(e) => setImageReferenceImage(e.target.value)}
+                                                placeholder="https://example.com/image.jpg"
+                                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {imageReferenceType === 'article' && (
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-sm text-gray-400 flex items-center">
+                                                <FileText className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Article Content
+                                            </label>
+                                            <textarea
+                                                value={imageReferenceArticle}
+                                                onChange={(e) => setImageReferenceArticle(e.target.value)}
+                                                placeholder="Paste your article here"
+                                                rows={6}
+                                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Category */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400">Category (Optional)</label>
+                                        <input
+                                            type="text"
+                                            value={imageCategory}
+                                            onChange={(e) => setImageCategory(e.target.value)}
+                                            placeholder="e.g., Marketing, Product, Announcement"
+                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                        />
+                                    </div>
+
+                                    {/* Tags */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400">Tags (Optional, max 3)</label>
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="text"
+                                                value={imageTagInput}
+                                                onChange={(e) => setImageTagInput(e.target.value)}
+                                                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddImageTag())}
+                                                placeholder="Add a tag and press Enter"
+                                                disabled={imageTags.length >= 3}
+                                                className="flex-1 bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] disabled:opacity-50"
+                                            />
+                                            <button
+                                                onClick={handleAddImageTag}
+                                                disabled={imageTags.length >= 3 || !imageTagInput.trim()}
+                                                className="px-4 py-3 bg-[#5ccfa2] text-black rounded-lg hover:bg-[#45a881] disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                                            >
+                                                Add
+                                            </button>
+                                        </div>
+                                        {imageTags.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {imageTags.map((tag) => (
+                                                    <span
+                                                        key={tag}
+                                                        className="bg-[#5ccfa2] text-black px-3 py-1 rounded-full text-sm font-semibold flex items-center space-x-2"
+                                                    >
+                                                        <span>{tag}</span>
+                                                        <X
+                                                            className="w-4 h-4 cursor-pointer hover:text-red-600"
+                                                            onClick={() => handleRemoveImageTag(tag)}
+                                                        />
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Generate Button */}
                                     <button
-                                        onClick={handleScheduleSave}
-                                        disabled={isSaving}
-                                        className={`px-4 py-2 rounded-lg font-semibold transition-all ${isSaving ? 'bg-gray-500 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}
+                                        onClick={handleImageOnlyGeneration}
+                                        disabled={imageLoading}
+                                        className={`w-full px-8 py-3 rounded-xl font-bold transition-all flex items-center justify-center ${
+                                            imageLoading
+                                                ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                                                : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'
+                                        }`}
                                     >
-                                        {isSaving ? 'Saving...' : 'Save Schedule'}
+                                        {imageLoading ? (
+                                            <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                                        ) : (
+                                            <ImageIcon className="w-5 h-5 mr-3" />
+                                        )}
+                                        {imageLoading ? 'Generating...' : 'Generate Image'}
                                     </button>
-                                </div>
+                                </motion.div>
+                            )}
 
-                                {configs.schedule_posts && nextScheduledTime && (
-                                    <p className="text-xs text-gray-400 mt-1">
-                                        Next scheduled post: {nextScheduledTime}
+                            {activeTab === 'video' && (
+                                <motion.div
+                                    key="video"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="space-y-6 pt-4"
+                                >
+                                    <p className="text-sm text-gray-400 italic">
+                                        Generate a video for social media
                                     </p>
-                                )}
-                            </div>
-                        </motion.div>
-                    
+
+                                    {/* Video Source Selection */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400 font-semibold">Video Source</label>
+                                        <div className="flex items-center space-x-4">
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="videoSource"
+                                                    checked={videoSource === 'text'}
+                                                    onChange={() => setVideoSource('text')}
+                                                    className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 focus:ring-[#5ccfa2]"
+                                                />
+                                                <span className="text-white">Text-to-video</span>
+                                            </label>
+
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="videoSource"
+                                                    checked={videoSource === 'image'}
+                                                    onChange={() => setVideoSource('image')}
+                                                    className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 focus:ring-[#5ccfa2]"
+                                                />
+                                                <span className="text-white">Image-to-video</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {videoSource === 'text' ? (
+                                        <>
+                                            {/* Text-to-Video Prompt */}
+                                            <div className="flex flex-col space-y-2">
+                                                <label className="text-sm text-gray-400 flex items-center">
+                                                    <Zap className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Prompt <span className="text-red-500 ml-1">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={videoPrompt}
+                                                    onChange={(e) => setVideoPrompt(e.target.value)}
+                                                    placeholder="Describe the video you want to create..."
+                                                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                                    required
+                                                />
+                                            </div>
+
+                                            {/* Reference Type Dropdown */}
+                                            <div className="flex flex-col space-y-2">
+                                                <label className="text-sm text-gray-400 flex items-center">
+                                                    Reference (Optional)
+                                                </label>
+                                                <select
+                                                    value={videoReferenceType}
+                                                    onChange={(e) => {
+                                                        setVideoReferenceType(e.target.value as ReferenceType);
+                                                        setVideoReferenceUrl('');
+                                                        setVideoReferenceVideo('');
+                                                        setVideoReferenceImage('');
+                                                        setVideoReferenceArticle('');
+                                                    }}
+                                                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                                >
+                                                    <option value="none">None</option>
+                                                    <option value="url">URL</option>
+                                                    <option value="video">Video</option>
+                                                    <option value="image">Image</option>
+                                                    <option value="article">Article Content</option>
+                                                </select>
+                                            </div>
+
+                                            {/* Conditional Reference Input Fields */}
+                                            {videoReferenceType === 'url' && (
+                                                <div className="flex flex-col space-y-2">
+                                                    <label className="text-sm text-gray-400 flex items-center">
+                                                        <Link className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Website URL
+                                                    </label>
+                                                    <input
+                                                        type="url"
+                                                        value={videoReferenceUrl}
+                                                        onChange={(e) => setVideoReferenceUrl(e.target.value)}
+                                                        placeholder="https://example.com"
+                                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {videoReferenceType === 'video' && (
+                                                <div className="flex flex-col space-y-2">
+                                                    <label className="text-sm text-gray-400 flex items-center">
+                                                        <Video className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Video URL
+                                                    </label>
+                                                    <input
+                                                        type="url"
+                                                        value={videoReferenceVideo}
+                                                        onChange={(e) => setVideoReferenceVideo(e.target.value)}
+                                                        placeholder="Only video URL supported"
+                                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {videoReferenceType === 'image' && (
+                                                <div className="flex flex-col space-y-2">
+                                                    <label className="text-sm text-gray-400 flex items-center">
+                                                        <ImageIcon className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Image URL
+                                                    </label>
+                                                    <input
+                                                        type="url"
+                                                        value={videoReferenceImage}
+                                                        onChange={(e) => setVideoReferenceImage(e.target.value)}
+                                                        placeholder="https://example.com/image.jpg"
+                                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {videoReferenceType === 'article' && (
+                                                <div className="flex flex-col space-y-2">
+                                                    <label className="text-sm text-gray-400 flex items-center">
+                                                        <FileText className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Article Content
+                                                    </label>
+                                                    <textarea
+                                                        value={videoReferenceArticle}
+                                                        onChange={(e) => setVideoReferenceArticle(e.target.value)}
+                                                        placeholder="Paste your article here"
+                                                        rows={6}
+                                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none"
+                                                    />
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {/* Image-to-Video */}
+                                            <div className="flex flex-col space-y-2">
+                                                <label className="text-sm text-gray-400">
+                                                    Select Image Source
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={selectedImageForVideo}
+                                                    onChange={(e) => setSelectedImageForVideo(e.target.value)}
+                                                    placeholder="Paste image URL or upload"
+                                                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                                />
+                                                <p className="text-xs text-gray-500">
+                                                    Don't have an image?{' '}
+                                                    <span
+                                                        onClick={scrollToImageTab}
+                                                        className="text-[#5ccfa2] underline cursor-pointer hover:text-[#45a881]"
+                                                    >
+                                                        Generate one
+                                                    </span>
+                                                </p>
+                                            </div>
+
+                                            {/* Video Description */}
+                                            <div className="flex flex-col space-y-2">
+                                                <label className="text-sm text-gray-400 flex items-center">
+                                                    <Zap className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Describe your video <span className="text-red-500 ml-1">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={videoImagePrompt}
+                                                    onChange={(e) => setVideoImagePrompt(e.target.value)}
+                                                    placeholder="e.g., Camera pans left to right, zoom into product"
+                                                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                                    required
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Orientation */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400 font-semibold">Orientation</label>
+                                        <div className="flex items-center space-x-4">
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="orientation"
+                                                    checked={videoOrientation === '16:9'}
+                                                    onChange={() => setVideoOrientation('16:9')}
+                                                    className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 focus:ring-[#5ccfa2]"
+                                                />
+                                                <span className="text-white">16:9 (Landscape)</span>
+                                            </label>
+
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="orientation"
+                                                    checked={videoOrientation === '9:16'}
+                                                    onChange={() => setVideoOrientation('9:16')}
+                                                    className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 focus:ring-[#5ccfa2]"
+                                                />
+                                                <span className="text-white">9:16 (Portrait)</span>
+                                            </label>
+
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="orientation"
+                                                    checked={videoOrientation === '1:1'}
+                                                    onChange={() => setVideoOrientation('1:1')}
+                                                    className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 focus:ring-[#5ccfa2]"
+                                                />
+                                                <span className="text-white">1:1 (Square)</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {/* Duration */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400 font-semibold">Duration</label>
+                                        <div className="flex items-center space-x-4">
+                                            {(['5', '10', '15', '30'] as const).map((duration) => (
+                                                <label key={duration} className="flex items-center space-x-2 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        name="duration"
+                                                        checked={videoDuration === duration}
+                                                        onChange={() => setVideoDuration(duration)}
+                                                        className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 focus:ring-[#5ccfa2]"
+                                                    />
+                                                    <span className="text-white">{duration}s</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Category */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400">Category (Optional)</label>
+                                        <input
+                                            type="text"
+                                            value={videoCategory}
+                                            onChange={(e) => setVideoCategory(e.target.value)}
+                                            placeholder="e.g., Marketing, Product, Announcement"
+                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                        />
+                                    </div>
+
+                                    {/* Tags */}
+                                    <div className="flex flex-col space-y-2">
+                                        <label className="text-sm text-gray-400">Tags (Optional, max 3)</label>
+                                        <div className="flex items-center space-x-2">
+                                            <input
+                                                type="text"
+                                                value={videoTagInput}
+                                                onChange={(e) => setVideoTagInput(e.target.value)}
+                                                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddVideoTag())}
+                                                placeholder="Add a tag and press Enter"
+                                                disabled={videoTags.length >= 3}
+                                                className="flex-1 bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] disabled:opacity-50"
+                                            />
+                                            <button
+                                                onClick={handleAddVideoTag}
+                                                disabled={videoTags.length >= 3 || !videoTagInput.trim()}
+                                                className="px-4 py-3 bg-[#5ccfa2] text-black rounded-lg hover:bg-[#45a881] disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                                            >
+                                                Add
+                                            </button>
+                                        </div>
+                                        {videoTags.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {videoTags.map((tag) => (
+                                                    <span
+                                                        key={tag}
+                                                        className="bg-[#5ccfa2] text-black px-3 py-1 rounded-full text-sm font-semibold flex items-center space-x-2"
+                                                    >
+                                                        <span>{tag}</span>
+                                                        <X
+                                                            className="w-4 h-4 cursor-pointer hover:text-red-600"
+                                                            onClick={() => handleRemoveVideoTag(tag)}
+                                                        />
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Generate Button */}
+                                    <button
+                                        onClick={handleVideoGeneration}
+                                        disabled={videoLoading}
+                                        className={`w-full px-8 py-3 rounded-xl font-bold transition-all flex items-center justify-center ${
+                                            videoLoading
+                                                ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                                                : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'
+                                        }`}
+                                    >
+                                        {videoLoading ? (
+                                            <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                                        ) : (
+                                            <Video className="w-5 h-5 mr-3" />
+                                        )}
+                                        {videoLoading ? 'Generating...' : 'Generate Video'}
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </motion.div>
                 </div>
             </div>
         </>
     );
 };
 
-export default PublishingPage;
+export default ContentStudioPage;
