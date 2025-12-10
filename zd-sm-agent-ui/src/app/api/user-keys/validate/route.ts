@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         // Fetch the encrypted key from database
         const { data: keyData, error: fetchError } = await supabaseServer
           .from('user_api_keys')
-          .select('encrypted_key')
+          .select('api_key_encrypted')
           .eq('user_id', userId)
           .eq('provider', provider)
           .single();
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         }
         
         // Decrypt the API key
-        const apiKey = decryptApiKey(keyData.encrypted_key);
+        const apiKey = decryptApiKey(keyData.api_key_encrypted);
         
         // Validate based on provider
         let isValid = false;

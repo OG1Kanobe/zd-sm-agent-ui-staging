@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
         // Fetch all API keys for the user (without decrypting)
         const { data: keys, error: fetchError } = await supabaseServer
           .from('user_api_keys')
-          .select('provider, last_four, is_valid, created_at, updated_at')
+          .select('provider, api_key_last_four, is_valid, created_at, updated_at')
           .eq('user_id', userId)
           .order('provider', { ascending: true });
         

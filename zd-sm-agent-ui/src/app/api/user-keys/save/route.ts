@@ -75,8 +75,8 @@ export async function POST(request: NextRequest) {
           const { error: updateError } = await supabaseServer
             .from('user_api_keys')
             .update({
-              encrypted_key: encryptedKey,
-              last_four: lastFour,
+              api_key_encrypted: encryptedKey,
+              api_key_last_four: lastFour,
               is_valid: true,
               updated_at: new Date().toISOString(),
             })
@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
             .insert({
               user_id: userId,
               provider,
-              encrypted_key: encryptedKey,
-              last_four: lastFour,
+                api_key_encrypted: encryptedKey,
+  api_key_last_four: lastFour,
               is_valid: true,
             });
           
