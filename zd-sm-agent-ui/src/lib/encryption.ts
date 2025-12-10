@@ -108,7 +108,7 @@ export function getLastFourChars(apiKey: string): string {
  */
 export function validateApiKeyFormat(provider: string, apiKey: string): boolean {
   const patterns: Record<string, RegExp> = {
-    openai: /^sk-[a-zA-Z0-9]{48}$/,
+    openai: /^sk-(proj-)?[a-zA-Z0-9_-]{20,}$/,
     gemini: /^AIza[a-zA-Z0-9_-]{35}$/,
     perplexity: /^pplx-[a-zA-Z0-9]{32,}$/,
     anthropic: /^sk-ant-[a-zA-Z0-9-_]{95}$/,
