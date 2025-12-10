@@ -34,10 +34,22 @@ type ContentTab = 'social' | 'image' | 'video';
 type VideoSource = 'text' | 'image';
 type Orientation = '16:9' | '9:16' | '1:1';
 
+// Custom TikTok Icon Component
+const TikTokIcon = ({ className }: { className?: string }) => (
+    <svg 
+        viewBox="0 0 24 24" 
+        className={className}
+        fill="currentColor"
+    >
+        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+    </svg>
+);
+
 const SOCIAL_PLATFORMS = [
     { name: 'Facebook', icon: Facebook, key: 'fb', color: 'bg-blue-600', loginUrl: '/api/facebook/login' },
     { name: 'Instagram', icon: Instagram, key: 'ig', color: 'bg-pink-600', loginUrl: '/api/instagram/login' },
     { name: 'LinkedIn', icon: Linkedin, key: 'li', color: 'bg-blue-800', loginUrl: '/api/linkedin/login' },
+    { name: 'TikTok', icon: TikTokIcon, key: 'tt', color: 'bg-black', loginUrl: '/api/tiktok/login' },
 ];
 
 const ContentStudioPage = () => {
@@ -145,45 +157,49 @@ const ContentStudioPage = () => {
     };
 
     const fetchSocialProfiles = async () => {
-        if (!userId) return;
+    if (!userId) return;
 
-        try {
-            const { data: socialProfile, error: socialError } = await supabase
-                .from('user_social_profiles')
-                .select('facebook_connected, instagram_connected, linkedin_connected, fb_token_expires_at, ig_token_expires_at, li_token_expires_at, linkedin_organizations')
-                .eq('client_id', userId)
-                .single();
+    try {
+        const { data: socialProfile, error: socialError } = await supabase
+            .from('user_social_profiles')
+            .select('facebook_connected, instagram_connected, linkedin_connected, tiktok_connected, fb_token_expires_at, ig_token_expires_at, li_token_expires_at, tt_token_expires_at, linkedin_organizations')
+            .eq('client_id', userId)
+            .single();
 
-            if (socialError && socialError.code !== 'PGRST116') {
-                console.error('Error fetching social profiles:', socialError);
-                return;
-            }
-
-            const profiles: Record<string, SocialProfile> = {
-                fb: {
-                    connected: socialProfile?.facebook_connected || false,
-                    token_expiry: socialProfile?.fb_token_expires_at || null
-                },
-                ig: {
-                    connected: socialProfile?.instagram_connected || false,
-                    token_expiry: socialProfile?.ig_token_expires_at || null
-                },
-                li: {
-                    connected: socialProfile?.linkedin_connected || false,
-                    token_expiry: socialProfile?.li_token_expires_at || null
-                }
-            };
-
-            setUserSocialProfiles(profiles);
-            
-            const orgsData = (socialProfile as any)?.linkedin_organizations;
-            if (orgsData && Array.isArray(orgsData) && orgsData.length > 0) {
-                setLinkedinOrgs(orgsData);
-            }
-        } catch (err) {
-            console.error('[Content Studio] Failed to fetch social profiles:', err);
+        if (socialError && socialError.code !== 'PGRST116') {
+            console.error('Error fetching social profiles:', socialError);
+            return;
         }
-    };
+
+        const profiles: Record<string, SocialProfile> = {
+            fb: {
+                connected: socialProfile?.facebook_connected || false,
+                token_expiry: socialProfile?.fb_token_expires_at || null
+            },
+            ig: {
+                connected: socialProfile?.instagram_connected || false,
+                token_expiry: socialProfile?.ig_token_expires_at || null
+            },
+            li: {
+                connected: socialProfile?.linkedin_connected || false,
+                token_expiry: socialProfile?.li_token_expires_at || null
+            },
+            tt: {
+                connected: socialProfile?.tiktok_connected || false,
+                token_expiry: socialProfile?.tt_token_expires_at || null
+            }
+        };
+
+        setUserSocialProfiles(profiles);
+        
+        const orgsData = (socialProfile as any)?.linkedin_organizations;
+        if (orgsData && Array.isArray(orgsData) && orgsData.length > 0) {
+            setLinkedinOrgs(orgsData);
+        }
+    } catch (err) {
+        console.error('[Content Studio] Failed to fetch social profiles:', err);
+    }
+};
 
     useEffect(() => {
         if (sessionLoading || !userId) return;
@@ -521,7 +537,7 @@ const ContentStudioPage = () => {
                 </div>
 
                 <div className="space-y-10">
-                    {/* SOCIAL MEDIA CONNECTIONS */}
+{/* SOCIAL MEDIA CONNECTIONS */}
                     <motion.div 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -532,7 +548,7 @@ const ContentStudioPage = () => {
                             <Link className="w-6 h-6 mr-3 text-[#5ccfa2]" /> Social Account Connections
                         </h2>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             {SOCIAL_PLATFORMS.map((platform) => {
                                 const profile = userSocialProfiles[platform.key];
                                 const isConnected = profile?.connected || false;
