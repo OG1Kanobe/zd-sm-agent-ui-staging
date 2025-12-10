@@ -19,19 +19,13 @@ export async function POST(req: NextRequest) {
     // 2. PARSE BODY
     const body = await req.json();
     const { 
-      clientConfigId, 
+      clientConfigId,
       prompt,
       referenceType,
       referenceUrl,
       referenceVideo,
       referenceImage,
       referenceArticle,
-      oneTimeFile,
-      generate_FB,
-      generate_IG,
-      generate_LI,
-      organic,
-      paid,
       category,
       tags
     } = body;
@@ -47,13 +41,6 @@ export async function POST(req: NextRequest) {
     if (!prompt || prompt.trim() === '') {
       return NextResponse.json(
         { error: 'Prompt is required' }, 
-        { status: 400 }
-      );
-    }
-
-    if (!generate_FB && !generate_IG && !generate_LI) {
-      return NextResponse.json(
-        { error: 'At least one platform must be selected' }, 
         { status: 400 }
       );
     }
@@ -75,28 +62,20 @@ export async function POST(req: NextRequest) {
         brand_tone,
         target_audience,
         visual_aesthetic,
-        custom_prompt,
-        rss_urls,
-        linkedin_organization_urn
+        custom_prompt
       `)
       .eq('id', clientConfigId)
       .single();
 
     if (configError || !config) {
-      console.error('[Post-Now] Client config lookup failed:', configError);
+      console.error('[Image-Only] Client config lookup failed:', configError);
       return NextResponse.json(
         { error: 'Client config not found or access denied' }, 
         { status: 404 }
       );
     }
 
-    const { data: userConfig } = await supabase
-      .from('client_configs')
-      .select('linkedin_organization_urn')
-      .eq('client_id', user.id)
-      .single();
-
-    // 5. VERIFY OWNERSHIP (extra safety)
+    // 5. VERIFY OWNERSHIP
     if (config.client_id !== user.id) {
       return NextResponse.json(
         { error: 'You do not have permission to use this config' },
@@ -104,17 +83,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const linkedinOrgUrn = config.linkedin_organization_urn || null;
-
-    // 6. GENERATE CONTENT GROUP ID
-    // This links all platform posts generated together
-    const contentGroupId = uuidv4();
-    console.log('[Post-Now] Generated contentGroupId:', contentGroupId);
+    // 6. GENERATE CONTENT GROUP ID (null for standalone images)
+    const contentGroupId = null; // Single image = no group
 
     // 7. BUILD WEBHOOK PAYLOAD
     const webhookPayload = {
-      action: 'post-now',
-      contentGroupId, // ← NEW: Pass to n8n
+      action: 'image-only',
+      contentGroupId,
       clientConfigId,
       clientId: config.client_id,
       
@@ -131,7 +106,6 @@ export async function POST(req: NextRequest) {
       targetAudience: config.target_audience,
       visualAesthetic: config.visual_aesthetic,
       customPrompt: config.custom_prompt,
-      rssUrls: config.rss_urls,
       
       // Generation parameters
       prompt: prompt.trim(),
@@ -140,38 +114,25 @@ export async function POST(req: NextRequest) {
       referenceVideo: referenceVideo || null,
       referenceImage: referenceImage || null,
       referenceArticle: referenceArticle || null,
-      oneTimeFile: oneTimeFile || null,
-      
-      // Platform selection
-      generate_FB: generate_FB || false,
-      generate_IG: generate_IG || false,
-      generate_LI: generate_LI || false,
-      
-      // Content type
-      organic: organic || false,
-      paid: paid || false,
-      contentType: organic ? 'organic' : 'paid',
       
       // Metadata
       category: category || 'none',
       tags: tags || [],
-      sourceType: 'social_post',
-      
-      // LinkedIn org
-      linkedin_organization_urn: userConfig?.linkedin_organization_urn || null,
+      sourceType: 'standalone_image',
+      platform: 'none',
       
       // Timestamp
       executedAt: new Date().toISOString(),
     };
 
-    console.log('[Post-Now] Webhook payload:', JSON.stringify(webhookPayload, null, 2));
+    console.log('[Image-Only] Webhook payload:', JSON.stringify(webhookPayload, null, 2));
 
     // 8. TRIGGER WEBHOOK
-    const webhookUrl = process.env.N8N_ONE_TIME_WEBHOOK;
+    const webhookUrl = process.env.N8N_IMAGE_ONLY_WEBHOOK;
     if (!webhookUrl) {
-      console.error('[Post-Now] Webhook URL missing in environment');
+      console.error('[Image-Only] Webhook URL missing in environment');
       return NextResponse.json(
-        { error: 'Webhook URL missing in environment' }, 
+        { error: 'Image generation service unavailable' }, 
         { status: 500 }
       );
     }
@@ -184,24 +145,24 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const text = await response.text();
-      console.error('[Post-Now] Webhook failed:', text);
+      console.error('[Image-Only] Webhook failed:', text);
       return NextResponse.json(
-        { error: `Webhook failed: ${text}` }, 
+        { error: `Image generation failed: ${text}` }, 
         { status: 500 }
       );
     }
 
     const responseData = await response.json();
-    console.log('[Post-Now] Webhook success:', responseData);
+    console.log('[Image-Only] Webhook success:', responseData);
 
     return NextResponse.json({ 
       success: true,
-      message: 'Social post generation started',
-      contentGroupId
+      message: 'Image generation started',
+      contentGroupId: null
     });
 
   } catch (err) {
-    console.error('[Post-Now] API error:', err);
+    console.error('[Image-Only] API error:', err);
     return NextResponse.json(
       { error: 'Internal server error' }, 
       { status: 500 }
