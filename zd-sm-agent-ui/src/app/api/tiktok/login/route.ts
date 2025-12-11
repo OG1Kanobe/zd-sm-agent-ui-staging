@@ -74,8 +74,12 @@ export async function GET(req: NextRequest) {
       fullLength: state.length,
     });
 
-    // TikTok OAuth scopes - try with just one scope for testing
-    const scopes = 'user.info.basic';
+    // TikTok OAuth scopes
+    const scopes = [
+      'user.info.basic',
+      'video.publish',
+      'video.upload',
+    ].join(',');
 
     // Build TikTok OAuth URL with PKCE
     // Parameters in the exact order from TikTok docs

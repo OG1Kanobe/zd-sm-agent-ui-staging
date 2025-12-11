@@ -185,6 +185,14 @@ export async function GET(req: NextRequest) {
 
     // Calculate token expiry
     const expiresAt = new Date(Date.now() + expires_in * 1000);
+    const refreshExpiresAt = refresh_expires_in 
+      ? new Date(Date.now() + refresh_expires_in * 1000)
+      : null;
+
+    console.log('[TikTok Callback] Token expiry:', {
+      access_token_expires: expiresAt.toISOString(),
+      refresh_token_expires: refreshExpiresAt?.toISOString() || 'N/A',
+    });
 
     // Save to Supabase
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -207,7 +215,9 @@ export async function GET(req: NextRequest) {
           tiktok_user_id: open_id,
           tiktok_username: tiktokUsername,
           tiktok_access_token: access_token,
+          tiktok_refresh_token: refresh_token,
           tiktok_token_expires_at: expiresAt.toISOString(),
+          tiktok_refresh_token_expires_at: refreshExpiresAt?.toISOString() || null,
           tt_token_expires_at: expiresAt.toISOString(), // For consistency with other platforms
           updated_at: new Date().toISOString(),
         })
@@ -230,7 +240,9 @@ export async function GET(req: NextRequest) {
           tiktok_user_id: open_id,
           tiktok_username: tiktokUsername,
           tiktok_access_token: access_token,
+          tiktok_refresh_token: refresh_token,
           tiktok_token_expires_at: expiresAt.toISOString(),
+          tiktok_refresh_token_expires_at: refreshExpiresAt?.toISOString() || null,
           tt_token_expires_at: expiresAt.toISOString(),
         });
 

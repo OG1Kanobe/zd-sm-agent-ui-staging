@@ -584,8 +584,10 @@ const ContentStudioPage = () => {
                                 const isConnected = profile?.connected || false;
                                 
                                 const tokenExpiry = profile?.token_expiry 
-                                    ? DateTime.fromISO(profile.token_expiry).minus({ days: 5 })
-                                    : null;
+    ? (platform.key === 'tt' 
+        ? DateTime.fromISO(profile.token_expiry)  // TikTok: show actual expiry
+        : DateTime.fromISO(profile.token_expiry).minus({ days: 5 }))  // Others: -5 days
+    : null;
                                 const expiryDate = tokenExpiry?.toLocaleString(DateTime.DATETIME_SHORT);
 
                                 return (
@@ -604,8 +606,14 @@ const ContentStudioPage = () => {
                                                 >
                                                     Connected <Check className="w-4 h-4 inline-block ml-2" />
                                                 </button>
-                                                <div className="flex justify-between w-full mt-2 text-xs text-gray-300 px-1">
-                                                    <span className="text-left">
+                                                <div className="flex flex-col space-y-1 w-full mt-2 text-xs text-gray-300 px-1">
+    {platform.key === 'tt' && (
+        <p className="text-yellow-400 text-xs italic">
+            TikTok tokens expire every 24 hours. We'll refresh automatically when you publish.
+        </p>
+    )}
+    <div className="flex justify-between w-full">
+        <span className="text-left">
                                                         {expiryDate ? `Token expires: ${expiryDate}` : 'No expiry data'}
                                                     </span>
                                                     <span 
@@ -613,8 +621,9 @@ const ContentStudioPage = () => {
                                                         className="underline cursor-pointer hover:text-[#5ccfa2] text-right"
                                                     >
                                                         Reconnect Now
-                                                    </span>
-                                                </div>
+                                                      </span>
+                                        </div>
+                                    </div>
                                             </>
                                         ) : (
                                             <button
