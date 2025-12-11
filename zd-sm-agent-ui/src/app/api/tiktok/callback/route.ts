@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 export async function GET(req: NextRequest) {
   try {
@@ -42,10 +43,27 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Extract userId from state (format: userId_randomString)
-    const userId = state.split('_')[0];
-    if (!userId) {
+    // Extract userId and code_verifier from state
+    const stateParts = state.split('||');
+    if (stateParts.length !== 3) {
       console.error('[TikTok Callback] Invalid state format');
+      return NextResponse.json(
+        { error: 'Invalid state parameter' },
+        { status: 400 }
+      );
+    }
+    
+    const userId = stateParts[0];
+    const codeVerifier = stateParts[1];
+    
+    console.log('[TikTok Callback] Parsed state:', {
+      userId,
+      codeVerifierFull: codeVerifier,
+      codeVerifierLength: codeVerifier.length,
+    });
+    
+    if (!userId || !codeVerifier || codeVerifier.length !== 43) {
+      console.error('[TikTok Callback] Invalid state values');
       return NextResponse.json(
         { error: 'Invalid state parameter' },
         { status: 400 }
@@ -76,6 +94,24 @@ export async function GET(req: NextRequest) {
 
     console.log('[TikTok Callback] Exchanging code for token...');
 
+    // Prepare token request body with code_verifier
+    const tokenRequestBody = new URLSearchParams({
+      client_key: clientKey,
+      client_secret: clientSecret,
+      code: code,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+      code_verifier: codeVerifier,
+    });
+
+    console.log('[TikTok Callback] Token request:', {
+      client_key: clientKey.substring(0, 10) + '...',
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+      code_verifier: codeVerifier,
+      code_verifier_length: codeVerifier.length,
+    });
+
     // Exchange authorization code for access token
     const tokenResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
       method: 'POST',
@@ -83,18 +119,13 @@ export async function GET(req: NextRequest) {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cache-Control': 'no-cache',
       },
-      body: new URLSearchParams({
-        client_key: clientKey,
-        client_secret: clientSecret,
-        code: code,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
-      }),
+      body: tokenRequestBody.toString(),
     });
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error('[TikTok Callback] Token exchange failed:', errorText);
+      console.error('[TikTok Callback] Status:', tokenResponse.status);
       return NextResponse.json(
         { error: 'Failed to exchange authorization code' },
         { status: 500 }
@@ -102,20 +133,30 @@ export async function GET(req: NextRequest) {
     }
 
     const tokenData = await tokenResponse.json();
-    console.log('[TikTok Callback] Token received');
+    console.log('[TikTok Callback] Token response:', JSON.stringify(tokenData, null, 2));
 
+    // TikTok may return data in different formats, let's handle both
+    const responseData = tokenData.data || tokenData;
+    
     const {
       access_token,
       expires_in,
       refresh_token,
       refresh_expires_in,
       open_id,
-    } = tokenData;
+    } = responseData;
+
+    console.log('[TikTok Callback] Extracted values:', {
+      has_access_token: !!access_token,
+      has_open_id: !!open_id,
+      expires_in,
+    });
 
     if (!access_token || !open_id) {
       console.error('[TikTok Callback] Missing access token or open_id');
+      console.error('[TikTok Callback] Full response:', JSON.stringify(tokenData, null, 2));
       return NextResponse.json(
-        { error: 'Invalid token response from TikTok' },
+        { error: 'Invalid token response from TikTok', details: tokenData },
         { status: 500 }
       );
     }

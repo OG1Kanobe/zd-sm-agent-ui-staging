@@ -243,40 +243,70 @@ const ContentStudioPage = () => {
         fetchData();
     }, [userId, sessionLoading]);
 
-    const handleSocialLogin = (platformKey: string, loginUrl: string) => {
-        if (!userId) return;
+   const handleSocialLogin = async (platformKey: string, loginUrl: string) => {
+  if (!userId) {
+    alert('User ID not found');
+    return;
+  }
 
-        const urlWithUser = `${loginUrl}?userId=${encodeURIComponent(userId)}`;
-        const width = 600;
-        const height = 700;
-        const left = window.screen.width / 2 - width / 2;
-        const top = window.screen.height / 2 - height / 2;
+  try {
+    // Step 1: Fetch the auth URL from your API
+    const response = await fetch(`${loginUrl}?userId=${userId}`);
+    const data = await response.json();
 
-        const popup = window.open(
-            urlWithUser, 
-            'SocialLoginPopup', 
-            `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes,status=yes`
-        );
+    if (!data.success || !data.authUrl) {
+      alert('Failed to generate login URL');
+      console.error('Login API error:', data);
+      return;
+    }
 
-        const listener = (event: MessageEvent) => {
-            if (event.origin !== window.location.origin) return;
-            
-            if (event.data.success && event.data.platform === platformKey) {
-                fetchSocialProfiles();
-                popup?.close();
-                window.removeEventListener('message', listener);
-            }
-        };
+    console.log(`[${platformKey}] Opening auth URL:`, data.authUrl);
 
-        window.addEventListener('message', listener);
+    // Step 2: Open popup with the TikTok auth URL (not your API)
+    const width = 600;
+    const height = 700;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
 
-        const checkPopupClosed = setInterval(() => {
-            if (popup?.closed) {
-                clearInterval(checkPopupClosed);
-                window.removeEventListener('message', listener);
-            }
-        }, 500);
+    const popup = window.open(
+      data.authUrl,  // ← This opens TikTok's page, not your API
+      'social-login',
+      `width=${width},height=${height},top=${top},left=${left}`
+    );
+
+    if (!popup) {
+      alert('Popup blocked! Please allow popups for this site.');
+      return;
+    }
+
+    // Step 3: Listen for success message from callback
+    const handleMessage = (event: MessageEvent) => {
+      // Security: only accept messages from same origin
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.success && event.data.platform === platformKey) {
+        console.log(`[${platformKey}] Connected successfully!`);
+        fetchSocialProfiles(); // Refresh to show "Connected"
+        window.removeEventListener('message', handleMessage);
+      } else if (event.data.error) {
+        console.error(`[${platformKey}] Login error:`, event.data.error);
+        alert(`${platformKey} login failed: ${event.data.error}`);
+        window.removeEventListener('message', handleMessage);
+      }
     };
+
+    window.addEventListener('message', handleMessage);
+
+    // Cleanup listener after 5 minutes (in case user closes popup)
+    setTimeout(() => {
+      window.removeEventListener('message', handleMessage);
+    }, 5 * 60 * 1000);
+
+  } catch (error) {
+    console.error(`[${platformKey}] Login error:`, error);
+    alert('Failed to initiate login');
+  }
+};//might needa revert and change handlesociallogin back to old one (lines 246-309)//
 
     // Tag handlers for Social Post
     const handleAddSocialTag = () => {
