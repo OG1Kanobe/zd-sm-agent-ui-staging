@@ -461,11 +461,11 @@ const CarouselCard: React.FC<{
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-[#10101d] rounded-xl shadow-lg border border-gray-800 flex flex-col overflow-hidden"
+      className="bg-[#10101d] rounded-xl shadow-lg border border-gray-800 flex flex-col" //changed this 121225
       style={{ aspectRatio: '4/5' }}
     >
       {/* Image Section - Top 60% */}
-      <div className="h-3/5 relative">
+      <div className="h-3/5 relative overflow-hidden rounded-t-xl"> {/* changed this 121225*/}
         <img
           src={currentPost.image_url || currentPost.video_thumbnail_url || 'https://placehold.co/400x500/10101d/5ccfa2?text=No+Image'}
           alt={PLATFORM_NAMES[currentPost.platform]}
@@ -613,11 +613,11 @@ const StandaloneCard: React.FC<{
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-[#10101d] rounded-xl shadow-lg border border-gray-800 flex flex-col overflow-hidden"
+      className="bg-[#10101d] rounded-xl shadow-lg border border-gray-800 flex flex-col" // changed this 121225*
       style={{ aspectRatio: '4/5' }}
     >
       {/* Media Section */}
-      <div className="h-3/5 relative">
+      <div className="h-3/5 relative overflow-hidden rounded-t-xl"> {/* changed this 121225*/}
         <img
           src={mediaUrl || 'https://placehold.co/400x500/10101d/5ccfa2?text=No+Media'}
           alt={SOURCE_TYPE_LABELS[post.source_type]}
