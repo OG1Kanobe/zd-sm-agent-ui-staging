@@ -524,6 +524,27 @@ const CarouselCard: React.FC<{
                 <Eye className="w-3 h-3 mr-1" />
                 View
               </button>
+        {/* ✅ ADD THREE-DOT MENU HERE */}
+        <div className="relative">
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+          {showMenu && (
+            <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
+              <button
+                onClick={() => { onDelete(currentPost.id); setShowMenu(false); }}
+                className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-lg"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+              
             </div>
           </div>
         ) : (
