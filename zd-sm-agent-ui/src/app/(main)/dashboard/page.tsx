@@ -6,7 +6,7 @@ import {
   XCircle, ChevronLeft, ChevronRight, Filter, Eye,
   Trash2, MoreVertical, Grid3x3, Play, X, Check,
   Image as ImageIcon, Video as VideoIcon, Repeat, Link2,
-  Edit, Save, MessageSquare
+  Edit, Save, MessageSquare, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -45,6 +45,7 @@ interface DashboardPost {
   cta: string | null;
   feedback: boolean;
   feedback_comments: string | null;
+  published_image_url: string | null;
 }
 
 interface GroupedContent {
@@ -276,6 +277,71 @@ const FilterBar: React.FC<{ filters: FilterState; onFiltersChange: (filters: Fil
   );
 };
 
+
+// MODALS: Feedback, Convert Choice, Convert to Video, Convert to Post
+
+const FeedbackModal: React.FC<{
+  postId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ postId, onClose, onSuccess }) => {
+  const [feedback, setFeedback] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!feedback.trim()) {
+      alert('Please enter your feedback');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({
+          feedback: true,
+          feedback_comments: feedback.trim()
+        })
+        .eq('id', postId);
+
+      if (error) throw error;
+
+      alert('Thank you for your feedback!');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      console.error('[Feedback] Error:', error);
+      alert(`Failed to submit feedback: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-lg rounded-xl shadow-2xl">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+            <h2 className="text-lg font-bold text-white">Send Feedback</h2>
+            <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
+          </div>
+          <div className="p-6">
+            <p className="text-sm text-gray-400 mb-4">Help us improve! Share your thoughts about this content.</p>
+            <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Enter your feedback..." rows={6} className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none" />
+          </div>
+          <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-800">
+            <button onClick={onClose} disabled={loading} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors disabled:opacity-50">Cancel</button>
+            <button onClick={handleSubmit} disabled={loading || !feedback.trim()} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center ${loading || !feedback.trim() ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}>
+              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : 'Submit Feedback'}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 const ConvertChoiceModal: React.FC<{
   post: DashboardPost;
   onClose: () => void;
@@ -389,39 +455,59 @@ const ConvertToVideoModal: React.FC<{
   );
 };
 
-const FeedbackModal: React.FC<{
-  postId: string;
+const ConvertToPostModal: React.FC<{
+  imageUrl: string;
+  sourcePostId: string;
   onClose: () => void;
   onSuccess: () => void;
-}> = ({ postId, onClose, onSuccess }) => {
-  const [feedback, setFeedback] = useState('');
+}> = ({ imageUrl, sourcePostId, onClose, onSuccess }) => {
+  const [caption, setCaption] = useState('');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
+  const [category, setCategory] = useState('');
+  const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const availablePlatforms: Platform[] = ['facebook', 'instagram', 'linkedin'];
+
+  const togglePlatform = (platform: Platform) => {
+    if (selectedPlatforms.includes(platform)) {
+      setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
+    } else {
+      setSelectedPlatforms([...selectedPlatforms, platform]);
+    }
+  };
 
   const handleSubmit = async () => {
-    if (!feedback.trim()) {
-      alert('Please enter your feedback');
+    if (selectedPlatforms.length === 0) {
+      setError('Please select at least one platform');
       return;
     }
 
     setLoading(true);
+    setError(null);
 
     try {
-      const { error } = await supabase
-        .from('posts')
-        .update({
-          feedback: true,
-          feedback_comments: feedback.trim()
-        })
-        .eq('id', postId);
+      const response = await fetch('/api/posts/convert-to-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourcePostId,
+          caption: caption.trim() || null,
+          platforms: selectedPlatforms,
+          category: category || null,
+          tags: tags.split(',').map(t => t.trim()).filter(Boolean),
+        }),
+      });
 
-      if (error) throw error;
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to convert image');
 
-      alert('Thank you for your feedback!');
       onSuccess();
       onClose();
-    } catch (error: any) {
-      console.error('[Feedback] Error:', error);
-      alert(`Failed to submit feedback: ${error.message}`);
+    } catch (err: any) {
+      console.error('[ConvertToPost] Error:', err);
+      setError(err.message || 'Failed to convert image');
     } finally {
       setLoading(false);
     }
@@ -430,19 +516,55 @@ const FeedbackModal: React.FC<{
   return (
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-lg rounded-xl shadow-2xl">
-          <div className="flex items-center justify-between p-4 border-b border-gray-800">
-            <h2 className="text-lg font-bold text-white">Send Feedback</h2>
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-2xl rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800 sticky top-0 bg-[#0b0b10] z-10">
+            <h2 className="text-lg font-bold text-white">Convert Image to Social Post</h2>
             <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
           </div>
-          <div className="p-6">
-            <p className="text-sm text-gray-400 mb-4">Help us improve! Share your thoughts about this content.</p>
-            <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Enter your feedback..." rows={6} className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none" />
+          <div className="p-6 space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-400 mb-2">Image Preview</label>
+              <img src={imageUrl} alt="Preview" className="w-full max-w-sm aspect-square object-cover rounded-lg mx-auto" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-400 mb-2">Caption (Optional)</label>
+              <textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Add a caption or leave blank for AI generation" rows={4} className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none" />
+              <p className="text-xs text-gray-500 mt-1">Leave blank to let AI generate a caption based on the image</p>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-400 mb-3">Select Platforms (FB, IG, LI only)</label>
+              <div className="grid grid-cols-2 gap-3">
+                {availablePlatforms.map(platform => {
+                  const isSelected = selectedPlatforms.includes(platform);
+                  return (
+                    <button key={platform} onClick={() => togglePlatform(platform)} className={`flex items-center space-x-3 p-4 rounded-lg border-2 transition-all ${isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
+                      <div className={isSelected ? 'text-[#5ccfa2]' : 'text-gray-400'}>{PLATFORM_ICONS[platform]}</div>
+                      <span className={isSelected ? 'text-white font-semibold' : 'text-gray-300'}>{PLATFORM_NAMES[platform]}</span>
+                      {isSelected && <Check className="w-5 h-5 text-[#5ccfa2] ml-auto" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-400 mb-2">Category (Optional)</label>
+              <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g., Marketing, Branding" className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-400 mb-2">Tags (Optional)</label>
+              <input type="text" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="summer, promo, sale (comma-separated)" className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]" />
+              <p className="text-xs text-gray-500 mt-1">Separate multiple tags with commas</p>
+            </div>
+            {error && (
+              <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
+                <p className="text-sm text-red-300">{error}</p>
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-800">
             <button onClick={onClose} disabled={loading} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors disabled:opacity-50">Cancel</button>
-            <button onClick={handleSubmit} disabled={loading || !feedback.trim()} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center ${loading || !feedback.trim() ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}>
-              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : 'Submit Feedback'}
+            <button onClick={handleSubmit} disabled={loading || selectedPlatforms.length === 0} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center ${loading || selectedPlatforms.length === 0 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}>
+              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating Posts...</> : `Generate Posts for ${selectedPlatforms.length} Platform${selectedPlatforms.length !== 1 ? 's' : ''}`}
             </button>
           </div>
         </motion.div>
@@ -452,151 +574,298 @@ const FeedbackModal: React.FC<{
 };
 
 
-const CarouselCard: React.FC<{
+// PUBLISH MODALS: Simple Publish Content + Advanced Customize Publish
+
+const PublishContentModal: React.FC<{
   group: GroupedContent;
-  onViewDetails: (group: GroupedContent) => void;
-  onPublish: (group: GroupedContent) => void;
-  onDelete: (postId: string) => void;
-  onFeedback: (postId: string) => void;
-}> = ({ group, onViewDetails, onPublish, onDelete, onFeedback }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [showMenu, setShowMenu] = useState(false);
-  const currentPost = group.posts[currentIndex];
-  const hasMultiple = group.posts.length > 1;
-  const badge = getBadgeStyle(currentPost.source_type);
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ group, onClose, onSuccess }) => {
+  const isVideo = group.primaryPost.source_type === 'video';
+  const availablePlatforms: Platform[] = isVideo 
+    ? ['facebook', 'instagram', 'linkedin', 'tiktok']
+    : ['facebook', 'instagram', 'linkedin'];
+
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(
+    group.posts.filter(p => !p.published && availablePlatforms.includes(p.platform)).map(p => p.platform)
+  );
+  const [loading, setLoading] = useState(false);
+
+  const togglePlatform = (platform: Platform) => {
+    if (selectedPlatforms.includes(platform)) {
+      setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
+    } else {
+      setSelectedPlatforms([...selectedPlatforms, platform]);
+    }
+  };
+
+  const handlePublish = async () => {
+    setLoading(true);
+    try {
+      const existingPlatforms = group.posts.map(p => p.platform);
+      const newPlatforms = selectedPlatforms.filter(p => !existingPlatforms.includes(p));
+      let allPostIds = group.posts.filter(p => selectedPlatforms.includes(p.platform)).map(p => p.id);
+
+      if (newPlatforms.length > 0) {
+        const response = await fetch('/api/posts/create-cross-post-rows', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourcePostId: group.posts[0].id, platforms: newPlatforms }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        allPostIds = [...allPostIds, ...data.newPosts.map((p: any) => p.id)];
+      }
+
+      const payload: any = { ig_publish: null, fb_publish: null, li_publish: null, tt_publish: null, userId: group.posts[0].user_id };
+      for (const post of group.posts) {
+        if (allPostIds.includes(post.id)) {
+          if (post.platform === 'instagram') payload.ig_publish = post.id;
+          if (post.platform === 'facebook') payload.fb_publish = post.id;
+          if (post.platform === 'linkedin') payload.li_publish = post.id;
+          if (post.platform === 'tiktok') payload.tt_publish = post.id;
+        }
+      }
+
+      const publishResponse = await fetch('/api/n8n/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!publishResponse.ok) throw new Error('Publishing failed');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      console.error('[Publish] Error:', error);
+      alert(`Failed to publish: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#10101d] rounded-xl shadow-lg border border-gray-800 flex flex-col" style={{ aspectRatio: '4/5' }}>
-      <div className="h-3/5 relative overflow-hidden rounded-t-xl">
-        <img src={currentPost.image_url || 'https://placehold.co/400x500/10101d/5ccfa2?text=No+Image'} alt={PLATFORM_NAMES[currentPost.platform]} className="w-full h-full object-cover" />
-        <div className="absolute top-3 right-3">
-          <div className={`flex items-center px-3 py-1 text-xs rounded-full font-semibold ${badge.color}`}>{badge.icon}{badge.label}</div>
-        </div>
-        {currentPost.category && currentPost.category !== 'none' && (
-          <div className="absolute top-3 left-3">
-            <span className="bg-[#5ccfa2] text-black text-xs font-semibold px-3 py-1 rounded-full">{currentPost.category}</span>
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-2xl rounded-xl shadow-2xl">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+            <h2 className="text-lg font-bold text-white">Publish Content</h2>
+            <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
           </div>
-        )}
-        {hasMultiple && (
-          <>
-            <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev - 1 + group.posts.length) % group.posts.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-            <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev + 1) % group.posts.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"><ChevronRight className="w-4 h-4" /></button>
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/50 px-3 py-1 rounded-full text-white text-xs">{currentIndex + 1} / {group.posts.length}</div>
-          </>
-        )}
-      </div>
-      <div className="h-2/5 p-4 flex flex-col justify-between">
-        <div>
-          <h4 className="text-sm font-mono text-white font-semibold mb-1">{PLATFORM_NAMES[currentPost.platform]}</h4>
-          <button onClick={() => onViewDetails(group)} className="text-xs text-[#5ccfa2] hover:text-[#45a881] transition-colors mb-1 text-left">
-            Click to view/edit caption & other details
-          </button>
-          <p className="text-xs text-gray-500">Originally generated for {PLATFORM_NAMES[currentPost.platform]}</p>
-        </div>
-        {currentPost.published && currentPost.platform_post_url ? (
-          <div className="mt-2 flex items-center justify-between">
-            <div className="flex space-x-2">
-              {group.posts.filter(p => p.published).map(post => (
-                <a key={post.id} href={post.platform_post_url!} target="_blank" rel="noopener noreferrer" title={`Click to view on ${PLATFORM_NAMES[post.platform]}`} className="hover:opacity-80 transition-opacity">{PLATFORM_ICONS[post.platform]}</a>
-              ))}
-            </div>
-            <div className="flex items-center space-x-2">
-              <button onClick={() => onViewDetails(group)} className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center"><Eye className="w-3 h-3 mr-1" />View</button>
-              <div className="relative">
-                <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
-                {showMenu && (
-                  <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
-                    <button onClick={() => { onFeedback(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-sm rounded-t-lg"><MessageSquare className="w-4 h-4 mr-2" />Send Feedback</button>
-                    <button onClick={() => { onDelete(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-b-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-gray-400 mb-4">
+              Each platform will be published with its own image and caption:
+            </p>
+            {availablePlatforms.map(platform => {
+              const existingPost = group.posts.find(p => p.platform === platform);
+              const isPublished = existingPost?.published;
+              const isSelected = selectedPlatforms.includes(platform);
+
+              return (
+                <div key={platform} className={`flex items-center justify-between p-4 rounded-lg border ${isPublished ? 'border-green-700 bg-green-900/20' : isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50'}`}>
+                  <div className="flex items-center space-x-3">
+                    {PLATFORM_ICONS[platform]}
+                    <span className="text-white">{PLATFORM_NAMES[platform]}</span>
+                    {isPublished && <span className="text-xs text-green-400">✓ Already published</span>}
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center space-x-2 mt-2">
-            <button onClick={() => onViewDetails(group)} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-3 h-3 mr-1" />View</button>
-            <button onClick={() => onPublish(group)} className="flex-1 px-3 py-1.5 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs rounded-lg font-semibold transition-colors flex items-center justify-center"><Send className="w-3 h-3 mr-1" />Publish</button>
-            <div className="relative">
-              <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
-              {showMenu && (
-                <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
-                  <button onClick={() => { onFeedback(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-sm rounded-t-lg"><MessageSquare className="w-4 h-4 mr-2" />Send Feedback</button>
-                  <button onClick={() => { onDelete(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-b-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
+                  {!isPublished && (
+                    <input type="checkbox" checked={isSelected} onChange={() => togglePlatform(platform)} className="w-5 h-5 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]" />
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
-        )}
-      </div>
-    </motion.div>
+          <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-800">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors">Cancel</button>
+            <button onClick={handlePublish} disabled={loading || selectedPlatforms.length === 0} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${loading || selectedPlatforms.length === 0 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}>
+              {loading ? <span className="flex items-center"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Publishing...</span> : `Publish to ${selectedPlatforms.length} Platform${selectedPlatforms.length !== 1 ? 's' : ''}`}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 
-const StandaloneCard: React.FC<{
-  post: DashboardPost;
-  onDelete: (postId: string) => void;
-  onConvertChoice: (post: DashboardPost) => void;
-  onViewDetails: (group: GroupedContent) => void;
-  onPublish: (post: DashboardPost) => void;
-  onFeedback: (postId: string) => void;
-}> = ({ post, onDelete, onConvertChoice, onViewDetails, onPublish, onFeedback }) => {
-  const [showMenu, setShowMenu] = useState(false);
-  const isImage = post.source_type === 'standalone_image';
-  const isVideo = post.source_type === 'video';
-  const badge = getBadgeStyle(post.source_type);
-  const mediaUrl = isVideo ? (post.video_thumbnail_url || post.video_url) : post.image_url;
+const CustomizePublishModal: React.FC<{
+  group: GroupedContent;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ group, onClose, onSuccess }) => {
+  const [currentTab, setCurrentTab] = useState(0);
+  const [platformSelections, setPlatformSelections] = useState<Record<string, Platform[]>>(
+    group.posts.reduce((acc, post) => {
+      acc[post.id] = post.published ? [] : [post.platform];
+      return acc;
+    }, {} as Record<string, Platform[]>)
+  );
+  const [loading, setLoading] = useState(false);
+
+  const isVideo = group.primaryPost.source_type === 'video';
+  const availablePlatforms: Platform[] = isVideo 
+    ? ['facebook', 'instagram', 'linkedin', 'tiktok']
+    : ['facebook', 'instagram', 'linkedin'];
+
+  const togglePlatform = (postId: string, platform: Platform) => {
+    setPlatformSelections(prev => {
+      const current = prev[postId] || [];
+      if (current.includes(platform)) {
+        return { ...prev, [postId]: current.filter(p => p !== platform) };
+      } else {
+        // Auto-uncheck this platform from other posts (radio behavior)
+        const updated = { ...prev };
+        Object.keys(updated).forEach(id => {
+          if (id !== postId) {
+            updated[id] = updated[id].filter(p => p !== platform);
+          }
+        });
+        updated[postId] = [...current, platform];
+        return updated;
+      }
+    });
+  };
+
+  const handlePublish = async () => {
+    setLoading(true);
+    try {
+      // Build the publish map: { platform: { postId, imageUrl } }
+      const publishMap: Record<Platform, { postId: string; imageUrl: string }> = {} as any;
+      
+      Object.entries(platformSelections).forEach(([postId, platforms]) => {
+        const post = group.posts.find(p => p.id === postId);
+        if (!post) return;
+        
+        platforms.forEach(platform => {
+          publishMap[platform] = {
+            postId: post.id,
+            imageUrl: post.image_url || ''
+          };
+        });
+      });
+
+      // For each platform, publish or create cross-post
+      const existingPlatforms = group.posts.map(p => p.platform);
+      const payload: any = { ig_publish: null, fb_publish: null, li_publish: null, tt_publish: null, userId: group.posts[0].user_id };
+
+      for (const [platform, data] of Object.entries(publishMap)) {
+        const existingPost = group.posts.find(p => p.platform === platform);
+        
+        if (existingPost) {
+          // Update existing post if different image
+          const sourcePost = group.posts.find(p => p.id === data.postId);
+          if (sourcePost && sourcePost.image_url !== existingPost.image_url) {
+            await supabase
+              .from('posts')
+              .update({
+                image_url: sourcePost.image_url,
+                published_image_url: sourcePost.image_url,
+                parent_post_id: sourcePost.id
+              })
+              .eq('id', existingPost.id);
+          }
+          
+          if (platform === 'instagram') payload.ig_publish = existingPost.id;
+          if (platform === 'facebook') payload.fb_publish = existingPost.id;
+          if (platform === 'linkedin') payload.li_publish = existingPost.id;
+          if (platform === 'tiktok') payload.tt_publish = existingPost.id;
+        } else {
+          // Create new cross-post
+          const response = await fetch('/api/posts/create-cross-post-rows', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sourcePostId: data.postId, platforms: [platform] }),
+          });
+          const responseData = await response.json();
+          if (!response.ok) throw new Error(responseData.error);
+          
+          const newPostId = responseData.newPosts[0].id;
+          if (platform === 'instagram') payload.ig_publish = newPostId;
+          if (platform === 'facebook') payload.fb_publish = newPostId;
+          if (platform === 'linkedin') payload.li_publish = newPostId;
+          if (platform === 'tiktok') payload.tt_publish = newPostId;
+        }
+      }
+
+      const publishResponse = await fetch('/api/n8n/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!publishResponse.ok) throw new Error('Publishing failed');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      console.error('[CustomizePublish] Error:', error);
+      alert(`Failed to publish: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const currentPost = group.posts[currentTab];
+  const selectedCount = Object.values(platformSelections).flat().length;
 
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#10101d] rounded-xl shadow-lg border border-gray-800 flex flex-col" style={{ aspectRatio: '4/5' }}>
-      <div className="h-3/5 relative overflow-hidden rounded-t-xl">
-        <img src={mediaUrl || 'https://placehold.co/400x500/10101d/5ccfa2?text=No+Media'} alt={badge.label} className="w-full h-full object-cover" />
-        {isVideo && <div className="absolute inset-0 flex items-center justify-center"><Play className="w-16 h-16 text-white/80" /></div>}
-        <div className="absolute top-3 right-3">
-          <div className={`flex items-center px-3 py-1 text-xs rounded-full font-semibold ${badge.color}`}>{badge.icon}{badge.label}</div>
-        </div>
-        {post.category && post.category !== 'none' && (
-          <div className="absolute top-3 left-3">
-            <span className="bg-[#5ccfa2] text-black text-xs font-semibold px-3 py-1 rounded-full">{post.category}</span>
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-3xl rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800 sticky top-0 bg-[#0b0b10] z-10">
+            <h2 className="text-lg font-bold text-white">Customize Publishing</h2>
+            <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
           </div>
-        )}
-      </div>
-      <div className="h-2/5 p-4 flex flex-col justify-between">
-        <div>
-          <h4 className="text-sm font-mono text-white font-semibold mb-1">{isImage ? 'Standalone Image' : 'Video'}</h4>
-          <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="text-xs text-[#5ccfa2] hover:text-[#45a881] transition-colors mb-1 text-left">
-            Click to view/edit details
-          </button>
-          {isVideo && post.orientation && <p className="text-xs text-gray-500">{post.orientation} • {post.duration}s</p>}
-        </div>
-        <div className="flex items-center space-x-2 mt-2">
-          {isImage && (
-            <>
-              <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-3 h-3 mr-1" />View</button>
-              <button onClick={() => onConvertChoice(post)} className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Repeat className="w-3 h-3 mr-1" />Convert</button>
-            </>
-          )}
-          {isVideo && (
-            <>
-              <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-3 h-3 mr-1" />View</button>
-              <button onClick={() => onPublish(post)} className="flex-1 px-3 py-1.5 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs rounded-lg font-semibold transition-colors flex items-center justify-center"><Send className="w-3 h-3 mr-1" />Publish</button>
-            </>
-          )}
-          <div className="relative">
-            <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
-            {showMenu && (
-              <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
-                <button onClick={() => { onFeedback(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-sm rounded-t-lg"><MessageSquare className="w-4 h-4 mr-2" />Send Feedback</button>
-                <button onClick={() => { onDelete(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-b-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
+          
+          <div className="flex items-center space-x-2 p-4 border-b border-gray-800 overflow-x-auto">
+            {group.posts.map((post, idx) => (
+              <button key={post.id} onClick={() => setCurrentTab(idx)} className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${currentTab === idx ? 'bg-[#5ccfa2] text-black' : 'bg-gray-800 text-white hover:bg-gray-700'}`}>
+                {PLATFORM_ICONS[post.platform]}
+                <span>{PLATFORM_NAMES[post.platform]}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="p-6">
+            <div className="mb-6">
+              <img src={currentPost.image_url || 'https://placehold.co/400x400/10101d/5ccfa2?text=No+Image'} alt={PLATFORM_NAMES[currentPost.platform]} className="w-full max-w-md aspect-square object-cover rounded-lg mx-auto" />
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-400 mb-3">Publish this {PLATFORM_NAMES[currentPost.platform]} content to:</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {availablePlatforms.map(platform => {
+                  const isSelected = platformSelections[currentPost.id]?.includes(platform) || false;
+                  const isPublished = group.posts.find(p => p.platform === platform)?.published;
+
+                  return (
+                    <button key={platform} onClick={() => !isPublished && togglePlatform(currentPost.id, platform)} disabled={isPublished} className={`flex items-center space-x-3 p-4 rounded-lg border-2 transition-all ${isPublished ? 'border-green-700 bg-green-900/20 cursor-not-allowed' : isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
+                      <div className={isPublished ? 'text-green-400' : isSelected ? 'text-[#5ccfa2]' : 'text-gray-400'}>{PLATFORM_ICONS[platform]}</div>
+                      <span className={isPublished ? 'text-green-400' : isSelected ? 'text-white font-semibold' : 'text-gray-300'}>{PLATFORM_NAMES[platform]}</span>
+                      {isSelected && <Check className="w-5 h-5 text-[#5ccfa2] ml-auto" />}
+                      {isPublished && <span className="text-xs ml-auto">Published</span>}
+                    </button>
+                  );
+                })}
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
-    </motion.div>
+
+          <div className="flex items-center justify-between p-4 border-t border-gray-800">
+            <p className="text-sm text-gray-400">Selected: {selectedCount} platform{selectedCount !== 1 ? 's' : ''}</p>
+            <div className="flex space-x-3">
+              <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors">Cancel</button>
+              <button onClick={handlePublish} disabled={loading || selectedCount === 0} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${loading || selectedCount === 0 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}>
+                {loading ? <span className="flex items-center"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Publishing...</span> : `Publish to ${selectedCount} Platform${selectedCount !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 
+
+// VIEW DETAILS MODAL with editable caption and category
 
 const ViewDetailsModal: React.FC<{
   group: GroupedContent;
@@ -763,235 +1032,195 @@ const ViewDetailsModal: React.FC<{
 };
 
 
-const PublishModal: React.FC<{
+// CAROUSEL CARD with compact status bar and publish dropdown
+
+const CarouselCard: React.FC<{
   group: GroupedContent;
-  onClose: () => void;
-  onPublish: () => void;
-}> = ({ group, onClose, onPublish }) => {
-  const isVideo = group.primaryPost.source_type === 'video';
-  const availablePlatforms: Platform[] = isVideo 
-    ? ['facebook', 'instagram', 'linkedin', 'tiktok']
-    : ['facebook', 'instagram', 'linkedin'];
-
-  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(
-    group.posts.filter(p => !p.published && availablePlatforms.includes(p.platform)).map(p => p.platform)
-  );
-  const [loading, setLoading] = useState(false);
-
-  const togglePlatform = (platform: Platform) => {
-    if (selectedPlatforms.includes(platform)) {
-      setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
-    } else {
-      setSelectedPlatforms([...selectedPlatforms, platform]);
-    }
-  };
-
-  const handlePublish = async () => {
-    setLoading(true);
-    try {
-      const existingPlatforms = group.posts.map(p => p.platform);
-      const newPlatforms = selectedPlatforms.filter(p => !existingPlatforms.includes(p));
-      let allPostIds = group.posts.filter(p => selectedPlatforms.includes(p.platform)).map(p => p.id);
-
-      if (newPlatforms.length > 0) {
-        const response = await fetch('/api/posts/create-cross-post-rows', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sourcePostId: group.posts[0].id, platforms: newPlatforms }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        allPostIds = [...allPostIds, ...data.newPosts.map((p: any) => p.id)];
-      }
-
-      const payload: any = { ig_publish: null, fb_publish: null, li_publish: null, tt_publish: null, userId: group.posts[0].user_id };
-      for (const post of group.posts) {
-        if (allPostIds.includes(post.id)) {
-          if (post.platform === 'instagram') payload.ig_publish = post.id;
-          if (post.platform === 'facebook') payload.fb_publish = post.id;
-          if (post.platform === 'linkedin') payload.li_publish = post.id;
-          if (post.platform === 'tiktok') payload.tt_publish = post.id;
-        }
-      }
-
-      const publishResponse = await fetch('/api/n8n/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!publishResponse.ok) throw new Error('Publishing failed');
-      onPublish();
-      onClose();
-    } catch (error: any) {
-      console.error('[Publish] Error:', error);
-      alert(`Failed to publish: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
+  onViewDetails: (group: GroupedContent) => void;
+  onPublishContent: (group: GroupedContent) => void;
+  onCustomizePublish: (group: GroupedContent) => void;
+  onDelete: (postId: string) => void;
+  onFeedback: (postId: string) => void;
+}> = ({ group, onViewDetails, onPublishContent, onCustomizePublish, onDelete, onFeedback }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showPublishDropdown, setShowPublishDropdown] = useState(false);
+  const currentPost = group.posts[currentIndex];
+  const hasMultiple = group.posts.length > 1;
+  const badge = getBadgeStyle(currentPost.source_type);
 
   return (
-    <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-2xl rounded-xl shadow-2xl">
-          <div className="flex items-center justify-between p-4 border-b border-gray-800">
-            <h2 className="text-lg font-bold text-white">Publish {isVideo ? 'Video' : 'Content'}</h2>
-            <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
+    <div className="flex flex-col">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#10101d] rounded-t-xl shadow-lg border border-gray-800 flex flex-col" style={{ aspectRatio: '4/5' }}>
+        <div className="h-3/5 relative overflow-hidden rounded-t-xl">
+          <img src={currentPost.image_url || 'https://placehold.co/400x500/10101d/5ccfa2?text=No+Image'} alt={PLATFORM_NAMES[currentPost.platform]} className="w-full h-full object-cover" />
+          <div className="absolute top-3 right-3">
+            <div className={`flex items-center px-3 py-1 text-xs rounded-full font-semibold ${badge.color}`}>{badge.icon}{badge.label}</div>
           </div>
-          <div className="p-6 space-y-4">
-            <p className="text-sm text-gray-400 mb-4">
-              Select platforms to publish to{!isVideo && ' (Images: FB, IG, LI only)'}:
-            </p>
-            {availablePlatforms.map(platform => {
-              const existingPost = group.posts.find(p => p.platform === platform);
-              const isPublished = existingPost?.published;
-              const isSelected = selectedPlatforms.includes(platform);
-
-              return (
-                <div key={platform} className={`flex items-center justify-between p-4 rounded-lg border ${isPublished ? 'border-green-700 bg-green-900/20' : isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50'}`}>
-                  <div className="flex items-center space-x-3">
-                    {PLATFORM_ICONS[platform]}
-                    <span className="text-white">{PLATFORM_NAMES[platform]}</span>
-                    {isPublished && <span className="text-xs text-green-400">✓ Already published</span>}
-                  </div>
-                  {!isPublished && (
-                    <input type="checkbox" checked={isSelected} onChange={() => togglePlatform(platform)} className="w-5 h-5 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]" />
-                  )}
+          {currentPost.category && currentPost.category !== 'none' && (
+            <div className="absolute top-3 left-3">
+              <span className="bg-[#5ccfa2] text-black text-xs font-semibold px-3 py-1 rounded-full">{currentPost.category}</span>
+            </div>
+          )}
+          {hasMultiple && (
+            <>
+              <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev - 1 + group.posts.length) % group.posts.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"><ChevronLeft className="w-4 h-4" /></button>
+              <button onClick={(e) => { e.stopPropagation(); setCurrentIndex((prev) => (prev + 1) % group.posts.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"><ChevronRight className="w-4 h-4" /></button>
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/50 px-3 py-1 rounded-full text-white text-xs">{currentIndex + 1} / {group.posts.length}</div>
+            </>
+          )}
+        </div>
+        <div className="h-2/5 p-4 flex flex-col justify-between">
+          <div>
+            <h4 className="text-sm font-mono text-white font-semibold mb-1">{PLATFORM_NAMES[currentPost.platform]}</h4>
+            <button onClick={() => onViewDetails(group)} className="text-xs text-[#5ccfa2] hover:text-[#45a881] transition-colors mb-1 text-left">
+              Click to view/edit caption & other details
+            </button>
+            <p className="text-xs text-gray-500">Originally generated for {PLATFORM_NAMES[currentPost.platform]}</p>
+          </div>
+          <div className="flex items-center space-x-2 mt-2">
+            <button onClick={() => onViewDetails(group)} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-3 h-3 mr-1" />View</button>
+            
+            <div className="relative flex-1">
+              <button onClick={() => setShowPublishDropdown(!showPublishDropdown)} className="w-full px-3 py-1.5 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs rounded-lg font-semibold transition-colors flex items-center justify-center">
+                <Send className="w-3 h-3 mr-1" />Publish <ChevronDown className="w-3 h-3 ml-1" />
+              </button>
+              {showPublishDropdown && (
+                <div className="absolute bottom-full mb-2 left-0 right-0 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
+                  <button onClick={() => { onPublishContent(group); setShowPublishDropdown(false); }} className="w-full px-4 py-2 text-left text-white hover:bg-gray-800 flex items-center text-xs rounded-t-lg"><Send className="w-3 h-3 mr-2" />Publish Content</button>
+                  <button onClick={() => { onCustomizePublish(group); setShowPublishDropdown(false); }} className="w-full px-4 py-2 text-left text-white hover:bg-gray-800 flex items-center text-xs rounded-b-lg"><Grid3x3 className="w-3 h-3 mr-2" />Customize Publish</button>
                 </div>
-              );
-            })}
+              )}
+            </div>
+
+            <div className="relative">
+              <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
+              {showMenu && (
+                <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
+                  <button onClick={() => { onFeedback(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-sm rounded-t-lg"><MessageSquare className="w-4 h-4 mr-2" />Send Feedback</button>
+                  <button onClick={() => { onDelete(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-b-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-800">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors">Cancel</button>
-            <button onClick={handlePublish} disabled={loading || selectedPlatforms.length === 0} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${loading || selectedPlatforms.length === 0 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}>
-              {loading ? <span className="flex items-center"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Publishing...</span> : `Publish to ${selectedPlatforms.length} Platform${selectedPlatforms.length !== 1 ? 's' : ''}`}
-            </button>
-          </div>
-        </motion.div>
+        </div>
       </motion.div>
-    </AnimatePresence>
+      
+      {/* Compact Status Bar */}
+      <div className="bg-[#10101d] border-x border-b border-gray-800 rounded-b-xl p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-gray-400">Status:</span>
+            {group.posts.map(post => (
+              <div key={post.id} className="flex items-center space-x-1">
+                {post.published ? (
+                  <a href={post.platform_post_url!} target="_blank" rel="noopener noreferrer" title={`Published on ${PLATFORM_NAMES[post.platform]}`} className="hover:opacity-80 transition-opacity">
+                    <div className="w-6 h-6 rounded-full bg-green-600 flex items-center justify-center">
+                      {PLATFORM_ICONS[post.platform]}
+                    </div>
+                  </a>
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center" title={`Draft - ${PLATFORM_NAMES[post.platform]}`}>
+                    {PLATFORM_ICONS[post.platform]}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {!group.allPublished && (
+            <span className="text-xs text-gray-500">{group.posts.filter(p => !p.published).length} draft</span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
-const ConvertToPostModal: React.FC<{
-  imageUrl: string;
-  sourcePostId: string;
-  onClose: () => void;
-  onSuccess: () => void;
-}> = ({ imageUrl, sourcePostId, onClose, onSuccess }) => {
-  const [caption, setCaption] = useState('');
-  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
-  const [category, setCategory] = useState('');
-  const [tags, setTags] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const availablePlatforms: Platform[] = ['facebook', 'instagram', 'linkedin'];
+// STANDALONE CARD for images and videos
 
-  const togglePlatform = (platform: Platform) => {
-    if (selectedPlatforms.includes(platform)) {
-      setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
-    } else {
-      setSelectedPlatforms([...selectedPlatforms, platform]);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (selectedPlatforms.length === 0) {
-      setError('Please select at least one platform');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/posts/convert-to-post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourcePostId,
-          caption: caption.trim() || null,
-          platforms: selectedPlatforms,
-          category: category || null,
-          tags: tags.split(',').map(t => t.trim()).filter(Boolean),
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to convert image');
-
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      console.error('[ConvertToPost] Error:', err);
-      setError(err.message || 'Failed to convert image');
-    } finally {
-      setLoading(false);
-    }
-  };
+const StandaloneCard: React.FC<{
+  post: DashboardPost;
+  onDelete: (postId: string) => void;
+  onConvertChoice: (post: DashboardPost) => void;
+  onViewDetails: (group: GroupedContent) => void;
+  onPublish: (post: DashboardPost) => void;
+  onFeedback: (postId: string) => void;
+}> = ({ post, onDelete, onConvertChoice, onViewDetails, onPublish, onFeedback }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const isImage = post.source_type === 'standalone_image';
+  const isVideo = post.source_type === 'video';
+  const badge = getBadgeStyle(post.source_type);
+  const mediaUrl = isVideo ? (post.video_thumbnail_url || post.video_url) : post.image_url;
 
   return (
-    <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-2xl rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-          <div className="flex items-center justify-between p-4 border-b border-gray-800 sticky top-0 bg-[#0b0b10] z-10">
-            <h2 className="text-lg font-bold text-white">Convert Image to Social Post</h2>
-            <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
+    <div className="flex flex-col">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#10101d] rounded-t-xl shadow-lg border border-gray-800 flex flex-col" style={{ aspectRatio: '4/5' }}>
+        <div className="h-3/5 relative overflow-hidden rounded-t-xl">
+          <img src={mediaUrl || 'https://placehold.co/400x500/10101d/5ccfa2?text=No+Media'} alt={badge.label} className="w-full h-full object-cover" />
+          {isVideo && <div className="absolute inset-0 flex items-center justify-center"><Play className="w-16 h-16 text-white/80" /></div>}
+          <div className="absolute top-3 right-3">
+            <div className={`flex items-center px-3 py-1 text-xs rounded-full font-semibold ${badge.color}`}>{badge.icon}{badge.label}</div>
           </div>
-          <div className="p-6 space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-gray-400 mb-2">Image Preview</label>
-              <img src={imageUrl} alt="Preview" className="w-full max-w-sm aspect-square object-cover rounded-lg mx-auto" />
+          {post.category && post.category !== 'none' && (
+            <div className="absolute top-3 left-3">
+              <span className="bg-[#5ccfa2] text-black text-xs font-semibold px-3 py-1 rounded-full">{post.category}</span>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-400 mb-2">Caption (Optional)</label>
-              <textarea value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Add a caption or leave blank for AI generation" rows={4} className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none" />
-              <p className="text-xs text-gray-500 mt-1">Leave blank to let AI generate a caption based on the image</p>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-400 mb-3">Select Platforms (FB, IG, LI only)</label>
-              <div className="grid grid-cols-2 gap-3">
-                {availablePlatforms.map(platform => {
-                  const isSelected = selectedPlatforms.includes(platform);
-                  return (
-                    <button key={platform} onClick={() => togglePlatform(platform)} className={`flex items-center space-x-3 p-4 rounded-lg border-2 transition-all ${isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
-                      <div className={isSelected ? 'text-[#5ccfa2]' : 'text-gray-400'}>{PLATFORM_ICONS[platform]}</div>
-                      <span className={isSelected ? 'text-white font-semibold' : 'text-gray-300'}>{PLATFORM_NAMES[platform]}</span>
-                      {isSelected && <Check className="w-5 h-5 text-[#5ccfa2] ml-auto" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-400 mb-2">Category (Optional)</label>
-              <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="e.g., Marketing, Branding" className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]" />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-400 mb-2">Tags (Optional)</label>
-              <input type="text" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="summer, promo, sale (comma-separated)" className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]" />
-              <p className="text-xs text-gray-500 mt-1">Separate multiple tags with commas</p>
-            </div>
-            {error && (
-              <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
-                <p className="text-sm text-red-300">{error}</p>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-800">
-            <button onClick={onClose} disabled={loading} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors disabled:opacity-50">Cancel</button>
-            <button onClick={handleSubmit} disabled={loading || selectedPlatforms.length === 0} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center ${loading || selectedPlatforms.length === 0 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}>
-              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating Posts...</> : `Generate Posts for ${selectedPlatforms.length} Platform${selectedPlatforms.length !== 1 ? 's' : ''}`}
+          )}
+        </div>
+        <div className="h-2/5 p-4 flex flex-col justify-between">
+          <div>
+            <h4 className="text-sm font-mono text-white font-semibold mb-1">{isImage ? 'Standalone Image' : 'Video'}</h4>
+            <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="text-xs text-[#5ccfa2] hover:text-[#45a881] transition-colors mb-1 text-left">
+              Click to view/edit details
             </button>
+            {isVideo && post.orientation && <p className="text-xs text-gray-500">{post.orientation} • {post.duration}s</p>}
           </div>
-        </motion.div>
+          <div className="flex items-center space-x-2 mt-2">
+            {isImage && (
+              <>
+                <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-3 h-3 mr-1" />View</button>
+                <button onClick={() => onConvertChoice(post)} className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Repeat className="w-3 h-3 mr-1" />Convert</button>
+              </>
+            )}
+            {isVideo && (
+              <>
+                <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-3 h-3 mr-1" />View</button>
+                <button onClick={() => onPublish(post)} className="flex-1 px-3 py-1.5 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs rounded-lg font-semibold transition-colors flex items-center justify-center"><Send className="w-3 h-3 mr-1" />Publish</button>
+              </>
+            )}
+            <div className="relative">
+              <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
+              {showMenu && (
+                <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
+                  <button onClick={() => { onFeedback(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-sm rounded-t-lg"><MessageSquare className="w-4 h-4 mr-2" />Send Feedback</button>
+                  <button onClick={() => { onDelete(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-b-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </motion.div>
-    </AnimatePresence>
+
+      {/* Status Bar for Standalone */}
+      <div className="bg-[#10101d] border-x border-b border-gray-800 rounded-b-xl p-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-400">
+            {post.published ? `Published ${formatDate(post.published_at!)}` : 'Not published'}
+          </span>
+          {post.published && post.platform_post_url && (
+            <a href={post.platform_post_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#5ccfa2] hover:text-[#45a881] transition-colors">
+              View Post →
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
+
+// MAIN DASHBOARD PAGE COMPONENT
 
 const DashboardPage = () => {
   const router = useRouter();
@@ -1012,7 +1241,8 @@ const DashboardPage = () => {
   const { grouped, standalone } = useMemo(() => groupPostsByContentGroup(posts), [posts]);
 
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
-  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [publishContentOpen, setPublishContentOpen] = useState(false);
+  const [customizePublishOpen, setCustomizePublishOpen] = useState(false);
   const [convertChoiceOpen, setConvertChoiceOpen] = useState(false);
   const [convertToPostOpen, setConvertToPostOpen] = useState(false);
   const [convertToVideoOpen, setConvertToVideoOpen] = useState(false);
@@ -1033,19 +1263,14 @@ const DashboardPage = () => {
     setViewDetailsOpen(true);
   };
 
-  const handleOpenPublish = (groupOrPost: GroupedContent | DashboardPost) => {
-    if ('posts' in groupOrPost) {
-      setSelectedGroup(groupOrPost);
-    } else {
-      setSelectedGroup({
-        contentGroupId: groupOrPost.id,
-        posts: [groupOrPost],
-        primaryPost: groupOrPost,
-        platforms: [],
-        allPublished: false,
-      });
-    }
-    setPublishModalOpen(true);
+  const handlePublishContent = (group: GroupedContent) => {
+    setSelectedGroup(group);
+    setPublishContentOpen(true);
+  };
+
+  const handleCustomizePublish = (group: GroupedContent) => {
+    setSelectedGroup(group);
+    setCustomizePublishOpen(true);
   };
 
   const handleConvertChoice = (post: DashboardPost) => {
@@ -1066,6 +1291,17 @@ const DashboardPage = () => {
   const handleOpenFeedback = (postId: string) => {
     setFeedbackPostId(postId);
     setFeedbackModalOpen(true);
+  };
+
+  const handlePublishStandalone = (post: DashboardPost) => {
+    setSelectedGroup({
+      contentGroupId: post.id,
+      posts: [post],
+      primaryPost: post,
+      platforms: [],
+      allPublished: false,
+    });
+    setPublishContentOpen(true);
   };
 
   const handleDelete = async (postId: string) => {
@@ -1137,10 +1373,26 @@ const DashboardPage = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {grouped.map(group => (
-              <CarouselCard key={group.contentGroupId} group={group} onViewDetails={handleViewDetails} onPublish={handleOpenPublish} onDelete={handleDelete} onFeedback={handleOpenFeedback} />
+              <CarouselCard 
+                key={group.contentGroupId} 
+                group={group} 
+                onViewDetails={handleViewDetails} 
+                onPublishContent={handlePublishContent}
+                onCustomizePublish={handleCustomizePublish}
+                onDelete={handleDelete} 
+                onFeedback={handleOpenFeedback} 
+              />
             ))}
             {standalone.map(post => (
-              <StandaloneCard key={post.id} post={post} onDelete={handleDelete} onConvertChoice={handleConvertChoice} onViewDetails={handleViewDetails} onPublish={(post) => handleOpenPublish(post)} onFeedback={handleOpenFeedback} />
+              <StandaloneCard 
+                key={post.id} 
+                post={post} 
+                onDelete={handleDelete} 
+                onConvertChoice={handleConvertChoice} 
+                onViewDetails={handleViewDetails} 
+                onPublish={handlePublishStandalone} 
+                onFeedback={handleOpenFeedback} 
+              />
             ))}
           </div>
         )}
@@ -1150,8 +1402,12 @@ const DashboardPage = () => {
         <ViewDetailsModal group={selectedGroup} onClose={() => { setViewDetailsOpen(false); setSelectedGroup(null); }} onUpdate={refetch} />
       )}
 
-      {publishModalOpen && selectedGroup && (
-        <PublishModal group={selectedGroup} onClose={() => { setPublishModalOpen(false); setSelectedGroup(null); }} onPublish={refetch} />
+      {publishContentOpen && selectedGroup && (
+        <PublishContentModal group={selectedGroup} onClose={() => { setPublishContentOpen(false); setSelectedGroup(null); }} onSuccess={refetch} />
+      )}
+
+      {customizePublishOpen && selectedGroup && (
+        <CustomizePublishModal group={selectedGroup} onClose={() => { setCustomizePublishOpen(false); setSelectedGroup(null); }} onSuccess={refetch} />
       )}
 
       {convertChoiceOpen && selectedPost && (
