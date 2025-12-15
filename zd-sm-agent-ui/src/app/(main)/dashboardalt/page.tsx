@@ -149,7 +149,7 @@ const groupPostsByContentGroup = (posts: DashboardPost[]): {
         return order[a.platform] - order[b.platform];
       }),
       primaryPost,
-      isCollapsed: false,
+      isCollapsed: true, // Start collapsed
     };
   });
 
@@ -277,7 +277,7 @@ const FilterBar: React.FC<{ filters: FilterState; onFiltersChange: (filters: Fil
 };
 
 
-// MODALS
+// MODALS (same as before)
 
 const FeedbackModal: React.FC<{
   postId: string;
@@ -366,7 +366,6 @@ const PublishModal: React.FC<{
   const handlePublish = async () => {
     setLoading(true);
     try {
-      // Check if cross-post rows need to be created
       const selectedPlatforms = [post.platform, ...crossPostPlatforms];
       const newPlatforms = crossPostPlatforms.filter(p => !allPlatforms.includes(p));
 
@@ -383,7 +382,6 @@ const PublishModal: React.FC<{
         allPostIds = [...allPostIds, ...data.newPosts.map((p: any) => p.id)];
       }
 
-      // Build n8n payload
       const payload: any = { ig_publish: null, fb_publish: null, li_publish: null, tt_publish: null, userId: post.user_id };
       
       if (selectedPlatforms.includes('facebook')) {
@@ -608,9 +606,9 @@ const ViewDetailsModal: React.FC<{
 };
 
 
-// INDIVIDUAL SOCIAL POST CARD
+// SINGLE CARD COMPONENT (Fixed Size: 280px x 350px - 4:5 ratio)
 
-const SocialPostCard: React.FC<{
+const SingleCard: React.FC<{
   post: DashboardPost;
   allPlatforms: Platform[];
   onView: (post: DashboardPost) => void;
@@ -620,64 +618,117 @@ const SocialPostCard: React.FC<{
 }> = ({ post, allPlatforms, onView, onPublish, onDelete, onFeedback }) => {
   const [showMenu, setShowMenu] = useState(false);
   const badge = getBadgeStyle(post.source_type);
+  const isVideo = post.source_type === 'video';
+  const mediaUrl = isVideo ? (post.video_thumbnail_url || post.video_url) : post.image_url;
 
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#10101d] rounded-xl shadow-lg border border-gray-800 flex flex-col" style={{ aspectRatio: '4/5', minWidth: '280px' }}>
-      <div className="h-3/5 relative overflow-hidden rounded-t-xl">
-        <img src={post.image_url || 'https://placehold.co/400x500/10101d/5ccfa2?text=No+Image'} alt={PLATFORM_NAMES[post.platform]} className="w-full h-full object-cover" />
-        <div className="absolute top-3 right-3">
-          <div className={`flex items-center px-3 py-1 text-xs rounded-full font-semibold ${badge.color}`}>{badge.icon}{badge.label}</div>
-        </div>
-        {post.category && post.category !== 'none' && (
-          <div className="absolute top-3 left-3">
-            <span className="bg-[#5ccfa2] text-black text-xs font-semibold px-3 py-1 rounded-full">{post.category}</span>
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }} 
+      animate={{ opacity: 1, scale: 1 }}
+      layout
+      className="bg-[#10101d] rounded-xl shadow-lg border border-gray-800 flex flex-col overflow-hidden"
+      style={{ width: '280px', height: '350px' }}
+    >
+      {/* Image Section - 60% */}
+      <div className="h-[60%] relative overflow-hidden">
+        <img 
+          src={mediaUrl || 'https://placehold.co/280x210/10101d/5ccfa2?text=No+Image'} 
+          alt={PLATFORM_NAMES[post.platform]} 
+          className="w-full h-full object-cover" 
+        />
+        {isVideo && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Play className="w-12 h-12 text-white/80" />
           </div>
         )}
+        
+        {/* Badge */}
+        <div className="absolute top-2 right-2">
+          <div className={`flex items-center px-2 py-1 text-[10px] rounded-full font-semibold ${badge.color}`}>
+            {badge.icon}
+            {badge.label}
+          </div>
+        </div>
+
+        {/* Category */}
+        {post.category && post.category !== 'none' && (
+          <div className="absolute top-2 left-2">
+            <span className="bg-[#5ccfa2] text-black text-[10px] font-semibold px-2 py-1 rounded-full">
+              {post.category}
+            </span>
+          </div>
+        )}
+
+        {/* Published Badge */}
         {post.published && (
-          <div className="absolute bottom-3 right-3">
-            <div className="bg-green-600 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center">
-              <CheckCircle className="w-3 h-3 mr-1" />Published
+          <div className="absolute bottom-2 right-2">
+            <div className="bg-green-600 text-white text-[10px] font-semibold px-2 py-1 rounded-full flex items-center">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Published
             </div>
           </div>
         )}
       </div>
-      <div className="h-2/5 p-4 flex flex-col justify-between">
-        <div>
+
+      {/* Content Section - 40% */}
+      <div className="h-[40%] p-3 flex flex-col justify-between">
+        <div className="flex-1 overflow-hidden">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-sm font-mono text-white font-semibold flex items-center">
-              {PLATFORM_ICONS[post.platform]}
-              <span className="ml-2">{PLATFORM_NAMES[post.platform]}</span>
+            <h4 className="text-xs font-mono text-white font-semibold flex items-center">
+              <span className="mr-1">{PLATFORM_ICONS[post.platform]}</span>
+              <span className="truncate">{PLATFORM_NAMES[post.platform]}</span>
             </h4>
           </div>
-          <button onClick={() => onView(post)} className="text-xs text-[#5ccfa2] hover:text-[#45a881] transition-colors mb-1 text-left">
+          <button 
+            onClick={() => onView(post)} 
+            className="text-[10px] text-[#5ccfa2] hover:text-[#45a881] transition-colors text-left line-clamp-2"
+          >
             Click to view/edit details
           </button>
-          {post.published && post.platform_post_url && (
-            <a href={post.platform_post_url} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-500 hover:text-[#5ccfa2] transition-colors block">
-              View on {PLATFORM_NAMES[post.platform]} →
-            </a>
-          )}
         </div>
-        <div className="flex items-center space-x-2 mt-2">
-          <button onClick={() => onView(post)} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center">
-            <Eye className="w-3 h-3 mr-1" />View
+
+        {/* Buttons */}
+        <div className="flex items-center space-x-1.5 mt-2">
+          <button 
+            onClick={() => onView(post)} 
+            className="flex-1 px-2 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-[10px] rounded-lg transition-colors flex items-center justify-center"
+          >
+            <Eye className="w-3 h-3 mr-1" />
+            View
           </button>
+          
           {!post.published && (
-            <button onClick={() => onPublish(post)} className="flex-1 px-3 py-1.5 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs rounded-lg font-semibold transition-colors flex items-center justify-center">
-              <Send className="w-3 h-3 mr-1" />Publish
+            <button 
+              onClick={() => onPublish(post)} 
+              className="flex-1 px-2 py-1.5 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-[10px] rounded-lg font-semibold transition-colors flex items-center justify-center"
+            >
+              <Send className="w-3 h-3 mr-1" />
+              Publish
             </button>
           )}
+          
           <div className="relative">
-            <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors">
-              <MoreVertical className="w-4 h-4" />
+            <button 
+              onClick={() => setShowMenu(!showMenu)} 
+              className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
+            >
+              <MoreVertical className="w-3.5 h-3.5" />
             </button>
             {showMenu && (
-              <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
-                <button onClick={() => { onFeedback(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-sm rounded-t-lg">
-                  <MessageSquare className="w-4 h-4 mr-2" />Send Feedback
+              <div className="absolute right-0 bottom-full mb-2 w-36 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
+                <button 
+                  onClick={() => { onFeedback(post.id); setShowMenu(false); }} 
+                  className="w-full px-3 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-xs rounded-t-lg"
+                >
+                  <MessageSquare className="w-3 h-3 mr-2" />
+                  Feedback
                 </button>
-                <button onClick={() => { onDelete(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-b-lg">
-                  <Trash2 className="w-4 h-4 mr-2" />Delete
+                <button 
+                  onClick={() => { onDelete(post.id); setShowMenu(false); }} 
+                  className="w-full px-3 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-xs rounded-b-lg"
+                >
+                  <Trash2 className="w-3 h-3 mr-2" />
+                  Delete
                 </button>
               </div>
             )}
@@ -688,9 +739,9 @@ const SocialPostCard: React.FC<{
   );
 };
 
-// GROUPED CONTENT CONTAINER with collapse/expand
+// GROUPED CARDS CONTAINER (Collapse/Expand with border)
 
-const GroupedContentContainer: React.FC<{
+const GroupedCards: React.FC<{
   group: GroupedContent;
   isCollapsed: boolean;
   onToggle: () => void;
@@ -702,58 +753,54 @@ const GroupedContentContainer: React.FC<{
   const allPlatforms = group.posts.map(p => p.platform);
 
   if (isCollapsed) {
-    // COLLAPSED STATE: Stacked cards
+    // COLLAPSED: Show only primary card
     return (
       <div className="relative" style={{ width: '280px' }}>
-        {/* Stack effect - show 3 layers */}
-        <div className="absolute top-2 left-2 right-2 h-full bg-[#10101d] rounded-xl border border-gray-700 opacity-30"></div>
-        <div className="absolute top-1 left-1 right-1 h-full bg-[#10101d] rounded-xl border border-gray-700 opacity-60"></div>
+        <SingleCard 
+          post={group.primaryPost} 
+          allPlatforms={allPlatforms}
+          onView={onView} 
+          onPublish={onPublish} 
+          onDelete={onDelete} 
+          onFeedback={onFeedback} 
+        />
         
-        {/* Primary card */}
-        <div className="relative">
-          <SocialPostCard 
-            post={group.primaryPost} 
-            allPlatforms={allPlatforms}
-            onView={onView} 
-            onPublish={onPublish} 
-            onDelete={onDelete} 
-            onFeedback={onFeedback} 
-          />
-          
-          {/* Expand button */}
-          <button 
-            onClick={onToggle}
-            className="absolute -top-3 right-3 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs font-semibold px-3 py-1 rounded-full shadow-lg transition-all flex items-center"
-          >
-            <ChevronRight className="w-3 h-3 mr-1" />
-            Expand ({group.posts.length})
-          </button>
-        </div>
+        {/* Expand button - top right corner */}
+        <button 
+          onClick={onToggle}
+          className="absolute -top-2 -right-2 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-[10px] font-semibold px-2 py-1 rounded-full shadow-lg transition-all flex items-center z-10"
+        >
+          <span className="underline mr-1">Expand</span>
+          <ChevronRight className="w-3 h-3" />
+        </button>
 
-        {/* Count indicator */}
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-3 py-1 rounded-full shadow-lg">
-          {group.posts.length} platforms
-        </div>
+        {/* Visual hint - cards behind */}
+        <div className="absolute -bottom-1 -right-1 w-full h-full bg-gray-800/30 rounded-xl -z-10"></div>
+        <div className="absolute -bottom-2 -right-2 w-full h-full bg-gray-800/15 rounded-xl -z-20"></div>
       </div>
     );
   }
 
-  // EXPANDED STATE: Side by side with border
+  // EXPANDED: Show all cards side-by-side with border
   return (
-    <div className="border-2 border-[#5ccfa2]/30 rounded-xl p-4 bg-[#5ccfa2]/5 relative">
-      {/* Collapse button */}
+    <motion.div 
+      layout
+      className="relative border-2 border-[#5ccfa2]/40 rounded-xl p-3 bg-[#5ccfa2]/5"
+      style={{ width: `${280 * group.posts.length + (group.posts.length - 1) * 16 + 24}px` }}
+    >
+      {/* Collapse button - top right */}
       <button 
         onClick={onToggle}
-        className="absolute -top-3 right-4 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs font-semibold px-3 py-1 rounded-full shadow-lg transition-all flex items-center z-10"
+        className="absolute -top-2 right-4 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-[10px] font-semibold px-2 py-1 rounded-full shadow-lg transition-all flex items-center z-10"
       >
-        <ChevronDown className="w-3 h-3 mr-1" />
-        Collapse
+        <span className="underline mr-1">Collapse</span>
+        <ChevronDown className="w-3 h-3" />
       </button>
 
       {/* Cards side by side */}
-      <div className="flex space-x-4 overflow-x-auto pb-2">
+      <div className="flex space-x-4">
         {group.posts.map(post => (
-          <SocialPostCard 
+          <SingleCard 
             key={post.id}
             post={post} 
             allPlatforms={allPlatforms}
@@ -763,66 +810,6 @@ const GroupedContentContainer: React.FC<{
             onFeedback={onFeedback} 
           />
         ))}
-      </div>
-    </div>
-  );
-};
-
-// STANDALONE CARDS (Image and Video)
-
-const StandaloneCard: React.FC<{
-  post: DashboardPost;
-  onView: (post: DashboardPost) => void;
-  onDelete: (postId: string) => void;
-  onFeedback: (postId: string) => void;
-}> = ({ post, onView, onDelete, onFeedback }) => {
-  const [showMenu, setShowMenu] = useState(false);
-  const isVideo = post.source_type === 'video';
-  const badge = getBadgeStyle(post.source_type);
-  const mediaUrl = isVideo ? (post.video_thumbnail_url || post.video_url) : post.image_url;
-
-  return (
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#10101d] rounded-xl shadow-lg border border-gray-800 flex flex-col" style={{ aspectRatio: '4/5', width: '280px' }}>
-      <div className="h-3/5 relative overflow-hidden rounded-t-xl">
-        <img src={mediaUrl || 'https://placehold.co/400x500/10101d/5ccfa2?text=No+Media'} alt={badge.label} className="w-full h-full object-cover" />
-        {isVideo && <div className="absolute inset-0 flex items-center justify-center"><Play className="w-16 h-16 text-white/80" /></div>}
-        <div className="absolute top-3 right-3">
-          <div className={`flex items-center px-3 py-1 text-xs rounded-full font-semibold ${badge.color}`}>{badge.icon}{badge.label}</div>
-        </div>
-        {post.category && post.category !== 'none' && (
-          <div className="absolute top-3 left-3">
-            <span className="bg-[#5ccfa2] text-black text-xs font-semibold px-3 py-1 rounded-full">{post.category}</span>
-          </div>
-        )}
-      </div>
-      <div className="h-2/5 p-4 flex flex-col justify-between">
-        <div>
-          <h4 className="text-sm font-mono text-white font-semibold mb-1">{isVideo ? 'Video' : 'Standalone Image'}</h4>
-          <button onClick={() => onView(post)} className="text-xs text-[#5ccfa2] hover:text-[#45a881] transition-colors mb-1 text-left">
-            Click to view details
-          </button>
-          {isVideo && post.orientation && <p className="text-xs text-gray-500">{post.orientation} • {post.duration}s</p>}
-        </div>
-        <div className="flex items-center space-x-2 mt-2">
-          <button onClick={() => onView(post)} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center">
-            <Eye className="w-3 h-3 mr-1" />View
-          </button>
-          <div className="relative">
-            <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors">
-              <MoreVertical className="w-4 h-4" />
-            </button>
-            {showMenu && (
-              <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
-                <button onClick={() => { onFeedback(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-sm rounded-t-lg">
-                  <MessageSquare className="w-4 h-4 mr-2" />Send Feedback
-                </button>
-                <button onClick={() => { onDelete(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-b-lg">
-                  <Trash2 className="w-4 h-4 mr-2" />Delete
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     </motion.div>
   );
@@ -896,6 +883,23 @@ const DashboardAltPage = () => {
     }
   };
 
+  // Combine all content items for rendering
+  const allContentItems = useMemo(() => {
+    const items: Array<{ type: 'group' | 'standalone'; data: GroupedContent | DashboardPost }> = [];
+    
+    // Add grouped content
+    groupedContent.forEach(group => {
+      items.push({ type: 'group', data: group });
+    });
+    
+    // Add standalone content
+    standaloneContent.forEach(post => {
+      items.push({ type: 'standalone', data: post });
+    });
+    
+    return items;
+  }, [groupedContent, standaloneContent]);
+
   if (sessionLoading || !userId) {
     if (!sessionLoading && !userId) {
       router.push('/login');
@@ -943,46 +947,42 @@ const DashboardAltPage = () => {
 
       <div>
         <h3 className="text-2xl font-mono text-white mb-6">Your Content</h3>
-        {groupedContent.length === 0 && standaloneContent.length === 0 ? (
+        {allContentItems.length === 0 ? (
           <div className="bg-[#10101d] p-12 rounded-xl border border-gray-800 text-center">
             <BookOpen className="w-16 h-16 text-gray-600 mx-auto mb-4" />
             <h4 className="text-xl font-mono text-gray-400 mb-2">No Content Found</h4>
             <p className="text-gray-500">Start creating content in the Content Studio</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Grouped Content */}
-            {groupedContent.map(group => (
-              <GroupedContentContainer
-                key={group.contentGroupId}
-                group={group}
-                isCollapsed={group.isCollapsed}
-                onToggle={() => toggleGroupCollapse(group.contentGroupId)}
-                onView={handleView}
-                onPublish={handlePublish}
-                onDelete={handleDelete}
-                onFeedback={handleFeedback}
-              />
+          <motion.div 
+            layout
+            className="flex flex-wrap gap-4"
+          >
+            {allContentItems.map((item, index) => (
+              <motion.div key={index} layout>
+                {item.type === 'group' ? (
+                  <GroupedCards
+                    group={item.data as GroupedContent}
+                    isCollapsed={(item.data as GroupedContent).isCollapsed}
+                    onToggle={() => toggleGroupCollapse((item.data as GroupedContent).contentGroupId)}
+                    onView={handleView}
+                    onPublish={handlePublish}
+                    onDelete={handleDelete}
+                    onFeedback={handleFeedback}
+                  />
+                ) : (
+                  <SingleCard
+                    post={item.data as DashboardPost}
+                    allPlatforms={[]}
+                    onView={handleView}
+                    onPublish={handlePublish}
+                    onDelete={handleDelete}
+                    onFeedback={handleFeedback}
+                  />
+                )}
+              </motion.div>
             ))}
-
-            {/* Standalone Content */}
-            {standaloneContent.length > 0 && (
-              <div>
-                <h4 className="text-lg font-mono text-gray-400 mb-4">Standalone Content</h4>
-                <div className="flex flex-wrap gap-6">
-                  {standaloneContent.map(post => (
-                    <StandaloneCard
-                      key={post.id}
-                      post={post}
-                      onView={handleView}
-                      onDelete={handleDelete}
-                      onFeedback={handleFeedback}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+          </motion.div>
         )}
       </div>
 
