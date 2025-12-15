@@ -5,7 +5,8 @@ import {
   Loader2, RefreshCw, BookOpen, Send, CheckCircle, 
   XCircle, ChevronLeft, ChevronRight, Filter, Eye,
   Trash2, MoreVertical, Grid3x3, Play, X, Check,
-  Image as ImageIcon, Video as VideoIcon, Repeat, Link2
+  Image as ImageIcon, Video as VideoIcon, Repeat, Link2,
+  Edit, Save, MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -42,6 +43,8 @@ interface DashboardPost {
   parent_post_id: string | null;
   prompt_used: string | null;
   cta: string | null;
+  feedback: boolean;
+  feedback_comments: string | null;
 }
 
 interface GroupedContent {
@@ -105,11 +108,6 @@ const getSevenDaysAgo = () => {
 };
 
 const getToday = () => new Date().toISOString().split('T')[0];
-
-const truncateText = (text: string, maxLength: number): string => {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
-};
 
 const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString('en-US', {
@@ -278,12 +276,189 @@ const FilterBar: React.FC<{ filters: FilterState; onFiltersChange: (filters: Fil
   );
 };
 
+const ConvertChoiceModal: React.FC<{
+  post: DashboardPost;
+  onClose: () => void;
+  onSelectImagePost: () => void;
+  onSelectVideo: () => void;
+}> = ({ post, onClose, onSelectImagePost, onSelectVideo }) => {
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-md rounded-xl shadow-2xl">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+            <h2 className="text-lg font-bold text-white">Convert Image</h2>
+            <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
+          </div>
+          <div className="p-6">
+            <img src={post.image_url!} alt="Preview" className="w-full aspect-square object-cover rounded-lg mb-6" />
+            <p className="text-sm text-gray-400 mb-6 text-center">What would you like to convert this image to?</p>
+            <div className="space-y-3">
+              <button onClick={onSelectImagePost} className="w-full flex items-center justify-center space-x-3 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                <Grid3x3 className="w-5 h-5" />
+                <span className="font-semibold">Convert to Social Post</span>
+              </button>
+              <button onClick={onSelectVideo} className="w-full flex items-center justify-center space-x-3 p-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
+                <VideoIcon className="w-5 h-5" />
+                <span className="font-semibold">Convert to Video</span>
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+const ConvertToVideoModal: React.FC<{
+  imageUrl: string;
+  sourcePostId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ imageUrl, sourcePostId, onClose, onSuccess }) => {
+  const [prompt, setPrompt] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (!prompt.trim()) {
+      setError('Please enter a prompt');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/posts/convert-to-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourcePostId,
+          prompt: prompt.trim(),
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to convert to video');
+
+      alert('Your video is on the way! It will pop up as a new card in the dashboard (takes about 2-3 minutes)');
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      console.error('[ConvertToVideo] Error:', err);
+      setError(err.message || 'Failed to convert to video');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-lg rounded-xl shadow-2xl">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+            <h2 className="text-lg font-bold text-white">Convert Image to Video</h2>
+            <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
+          </div>
+          <div className="p-6 space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-400 mb-2">Image Preview</label>
+              <img src={imageUrl} alt="Preview" className="w-full max-w-sm aspect-square object-cover rounded-lg mx-auto" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-400 mb-2">Video Prompt *</label>
+              <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe how you want this image to be animated..." rows={4} className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none" />
+              <p className="text-xs text-gray-500 mt-1">Example: "Make the clouds move gently across the sky"</p>
+            </div>
+            {error && (
+              <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
+                <p className="text-sm text-red-300">{error}</p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-800">
+            <button onClick={onClose} disabled={loading} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors disabled:opacity-50">Cancel</button>
+            <button onClick={handleSubmit} disabled={loading || !prompt.trim()} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center ${loading || !prompt.trim() ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700'}`}>
+              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Converting...</> : 'Convert to Video'}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+const FeedbackModal: React.FC<{
+  postId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ postId, onClose, onSuccess }) => {
+  const [feedback, setFeedback] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!feedback.trim()) {
+      alert('Please enter your feedback');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({
+          feedback: true,
+          feedback_comments: feedback.trim()
+        })
+        .eq('id', postId);
+
+      if (error) throw error;
+
+      alert('Thank you for your feedback!');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      console.error('[Feedback] Error:', error);
+      alert(`Failed to submit feedback: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-lg rounded-xl shadow-2xl">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+            <h2 className="text-lg font-bold text-white">Send Feedback</h2>
+            <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
+          </div>
+          <div className="p-6">
+            <p className="text-sm text-gray-400 mb-4">Help us improve! Share your thoughts about this content.</p>
+            <textarea value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Enter your feedback..." rows={6} className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none" />
+          </div>
+          <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-800">
+            <button onClick={onClose} disabled={loading} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors disabled:opacity-50">Cancel</button>
+            <button onClick={handleSubmit} disabled={loading || !feedback.trim()} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center ${loading || !feedback.trim() ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}>
+              {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : 'Submit Feedback'}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+
 const CarouselCard: React.FC<{
   group: GroupedContent;
   onViewDetails: (group: GroupedContent) => void;
   onPublish: (group: GroupedContent) => void;
   onDelete: (postId: string) => void;
-}> = ({ group, onViewDetails, onPublish, onDelete }) => {
+  onFeedback: (postId: string) => void;
+}> = ({ group, onViewDetails, onPublish, onDelete, onFeedback }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showMenu, setShowMenu] = useState(false);
   const currentPost = group.posts[currentIndex];
@@ -312,43 +487,42 @@ const CarouselCard: React.FC<{
       </div>
       <div className="h-2/5 p-4 flex flex-col justify-between">
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-mono text-white">{PLATFORM_NAMES[currentPost.platform]}</h4>
-            {hasMultiple && <span className="text-xs text-gray-500">{group.platforms.length} platforms</span>}
-          </div>
-          <p className="text-xs text-gray-400 line-clamp-2 mb-2">{truncateText(currentPost.caption || 'No caption', 100)}</p>
+          <h4 className="text-sm font-mono text-white font-semibold mb-1">{PLATFORM_NAMES[currentPost.platform]}</h4>
+          <button onClick={() => onViewDetails(group)} className="text-xs text-[#5ccfa2] hover:text-[#45a881] transition-colors mb-1 text-left">
+            Click to view/edit caption & other details
+          </button>
+          <p className="text-xs text-gray-500">Originally generated for {PLATFORM_NAMES[currentPost.platform]}</p>
         </div>
         {currentPost.published && currentPost.platform_post_url ? (
-          <div className="mt-2">
-            <p className="text-xs text-gray-500 mb-2">Published to:</p>
-            <div className="flex items-center justify-between">
-              <div className="flex space-x-2">
-                {group.posts.filter(p => p.published).map(post => (
-                  <a key={post.id} href={post.platform_post_url!} target="_blank" rel="noopener noreferrer" title={`Click to view on ${PLATFORM_NAMES[post.platform]}`} className="hover:opacity-80 transition-opacity">{PLATFORM_ICONS[post.platform]}</a>
-                ))}
-              </div>
-              <div className="flex items-center space-x-2">
-                <button onClick={() => onViewDetails(group)} className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center"><Eye className="w-3 h-3 mr-1" />View</button>
-                <div className="relative">
-                  <button onClick={() => setShowMenu(!showMenu)} className="p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
-                  {showMenu && (
-                    <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
-                      <button onClick={() => { onDelete(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
-                    </div>
-                  )}
-                </div>
+          <div className="mt-2 flex items-center justify-between">
+            <div className="flex space-x-2">
+              {group.posts.filter(p => p.published).map(post => (
+                <a key={post.id} href={post.platform_post_url!} target="_blank" rel="noopener noreferrer" title={`Click to view on ${PLATFORM_NAMES[post.platform]}`} className="hover:opacity-80 transition-opacity">{PLATFORM_ICONS[post.platform]}</a>
+              ))}
+            </div>
+            <div className="flex items-center space-x-2">
+              <button onClick={() => onViewDetails(group)} className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center"><Eye className="w-3 h-3 mr-1" />View</button>
+              <div className="relative">
+                <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
+                {showMenu && (
+                  <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
+                    <button onClick={() => { onFeedback(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-sm rounded-t-lg"><MessageSquare className="w-4 h-4 mr-2" />Send Feedback</button>
+                    <button onClick={() => { onDelete(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-b-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         ) : (
           <div className="flex items-center space-x-2 mt-2">
-            <button onClick={() => onViewDetails(group)} className="flex-1 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-lg transition-colors flex items-center justify-center"><Eye className="w-4 h-4 mr-1" />View</button>
-            <button onClick={() => onPublish(group)} className="flex-1 px-3 py-2 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-sm rounded-lg font-semibold transition-colors flex items-center justify-center"><Send className="w-4 h-4 mr-1" />Publish</button>
+            <button onClick={() => onViewDetails(group)} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-3 h-3 mr-1" />View</button>
+            <button onClick={() => onPublish(group)} className="flex-1 px-3 py-1.5 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs rounded-lg font-semibold transition-colors flex items-center justify-center"><Send className="w-3 h-3 mr-1" />Publish</button>
             <div className="relative">
-              <button onClick={() => setShowMenu(!showMenu)} className="p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
+              <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
               {showMenu && (
                 <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
-                  <button onClick={() => { onDelete(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
+                  <button onClick={() => { onFeedback(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-sm rounded-t-lg"><MessageSquare className="w-4 h-4 mr-2" />Send Feedback</button>
+                  <button onClick={() => { onDelete(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-b-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
                 </div>
               )}
             </div>
@@ -362,9 +536,11 @@ const CarouselCard: React.FC<{
 const StandaloneCard: React.FC<{
   post: DashboardPost;
   onDelete: (postId: string) => void;
-  onConvertToPost: (post: DashboardPost) => void;
+  onConvertChoice: (post: DashboardPost) => void;
   onViewDetails: (group: GroupedContent) => void;
-}> = ({ post, onDelete, onConvertToPost, onViewDetails }) => {
+  onPublish: (post: DashboardPost) => void;
+  onFeedback: (postId: string) => void;
+}> = ({ post, onDelete, onConvertChoice, onViewDetails, onPublish, onFeedback }) => {
   const [showMenu, setShowMenu] = useState(false);
   const isImage = post.source_type === 'standalone_image';
   const isVideo = post.source_type === 'video';
@@ -387,27 +563,31 @@ const StandaloneCard: React.FC<{
       </div>
       <div className="h-2/5 p-4 flex flex-col justify-between">
         <div>
-          <p className="text-xs text-gray-400 line-clamp-2 mb-2">{post.prompt_used ? truncateText(post.prompt_used, 100) : 'No description'}</p>
+          <h4 className="text-sm font-mono text-white font-semibold mb-1">{isImage ? 'Standalone Image' : 'Video'}</h4>
+          <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="text-xs text-[#5ccfa2] hover:text-[#45a881] transition-colors mb-1 text-left">
+            Click to view/edit details
+          </button>
           {isVideo && post.orientation && <p className="text-xs text-gray-500">{post.orientation} • {post.duration}s</p>}
         </div>
         <div className="flex items-center space-x-2 mt-2">
           {isImage && (
             <>
-              <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="flex-1 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-4 h-4 mr-1" />View</button>
-              <button onClick={() => onConvertToPost(post)} className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Repeat className="w-4 h-4 mr-1" />Convert</button>
+              <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-3 h-3 mr-1" />View</button>
+              <button onClick={() => onConvertChoice(post)} className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Repeat className="w-3 h-3 mr-1" />Convert</button>
             </>
           )}
           {isVideo && (
             <>
-              <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="flex-1 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-4 h-4 mr-1" />View</button>
-              <button onClick={() => alert('Video publish modal - to be connected')} className="flex-1 px-3 py-2 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs rounded-lg font-semibold transition-colors flex items-center justify-center"><Send className="w-4 h-4 mr-1" />Publish</button>
+              <button onClick={() => onViewDetails({ contentGroupId: post.id, posts: [post], primaryPost: post, platforms: [], allPublished: false })} className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors flex items-center justify-center"><Eye className="w-3 h-3 mr-1" />View</button>
+              <button onClick={() => onPublish(post)} className="flex-1 px-3 py-1.5 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs rounded-lg font-semibold transition-colors flex items-center justify-center"><Send className="w-3 h-3 mr-1" />Publish</button>
             </>
           )}
           <div className="relative">
-            <button onClick={() => setShowMenu(!showMenu)} className="p-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
+            <button onClick={() => setShowMenu(!showMenu)} className="p-1.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"><MoreVertical className="w-4 h-4" /></button>
             {showMenu && (
               <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
-                <button onClick={() => { onDelete(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
+                <button onClick={() => { onFeedback(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 flex items-center text-sm rounded-t-lg"><MessageSquare className="w-4 h-4 mr-2" />Send Feedback</button>
+                <button onClick={() => { onDelete(post.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 flex items-center text-sm rounded-b-lg"><Trash2 className="w-4 h-4 mr-2" />Delete</button>
               </div>
             )}
           </div>
@@ -417,9 +597,66 @@ const StandaloneCard: React.FC<{
   );
 };
 
-const ViewDetailsModal: React.FC<{ group: GroupedContent; onClose: () => void; }> = ({ group, onClose }) => {
+
+const ViewDetailsModal: React.FC<{
+  group: GroupedContent;
+  onClose: () => void;
+  onUpdate: () => void;
+}> = ({ group, onClose, onUpdate }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentPost = group.posts[currentIndex];
+  
+  const [isEditingCaption, setIsEditingCaption] = useState(false);
+  const [editedCaption, setEditedCaption] = useState(currentPost.caption || '');
+  const [category, setCategory] = useState(currentPost.category || '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setEditedCaption(currentPost.caption || '');
+    setCategory(currentPost.category || '');
+    setIsEditingCaption(false);
+  }, [currentIndex, currentPost]);
+
+  const handleSaveCaption = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({ caption: editedCaption.trim() })
+        .eq('id', currentPost.id);
+
+      if (error) throw error;
+
+      setIsEditingCaption(false);
+      onUpdate();
+      alert('Caption saved successfully!');
+    } catch (error: any) {
+      console.error('[SaveCaption] Error:', error);
+      alert(`Failed to save caption: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveCategory = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({ category: category || null })
+        .eq('id', currentPost.id);
+
+      if (error) throw error;
+
+      onUpdate();
+      alert('Category saved successfully!');
+    } catch (error: any) {
+      console.error('[SaveCategory] Error:', error);
+      alert(`Failed to save category: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -455,15 +692,38 @@ const ViewDetailsModal: React.FC<{ group: GroupedContent; onClose: () => void; }
               </div>
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-400 mb-2">Caption</h3>
-                  <p className="text-sm text-white whitespace-pre-wrap">{currentPost.caption || 'No caption'}</p>
-                </div>
-                {currentPost.category && currentPost.category !== 'none' && (
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-400 mb-2">Category</h3>
-                    <span className="inline-block bg-[#5ccfa2] text-black text-xs px-3 py-1 rounded-full">{currentPost.category}</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-gray-400">Caption</h3>
+                    {!currentPost.published && !isEditingCaption && (
+                      <button onClick={() => setIsEditingCaption(true)} className="text-xs text-[#5ccfa2] hover:text-[#45a881] flex items-center"><Edit className="w-3 h-3 mr-1" />Edit</button>
+                    )}
                   </div>
-                )}
+                  {isEditingCaption ? (
+                    <div className="space-y-2">
+                      <textarea value={editedCaption} onChange={(e) => setEditedCaption(e.target.value)} rows={6} className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none" />
+                      <div className="flex space-x-2">
+                        <button onClick={handleSaveCaption} disabled={saving} className="flex-1 px-3 py-1.5 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs rounded-lg font-semibold transition-colors flex items-center justify-center disabled:opacity-50">
+                          {saving ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Save className="w-3 h-3 mr-1" />}
+                          Save
+                        </button>
+                        <button onClick={() => { setEditedCaption(currentPost.caption || ''); setIsEditingCaption(false); }} className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs rounded-lg transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-white whitespace-pre-wrap">{currentPost.caption || 'No caption'}</p>
+                  )}
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-gray-400">Category</h3>
+                  </div>
+                  <div className="flex space-x-2">
+                    <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Enter category..." className="flex-1 bg-[#010112] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]" />
+                    <button onClick={handleSaveCategory} disabled={saving || category === currentPost.category} className="px-4 py-2 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                    </button>
+                  </div>
+                </div>
                 {currentPost.tags && currentPost.tags.length > 0 && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-400 mb-2">Tags</h3>
@@ -502,8 +762,20 @@ const ViewDetailsModal: React.FC<{ group: GroupedContent; onClose: () => void; }
   );
 };
 
-const PublishModal: React.FC<{ group: GroupedContent; onClose: () => void; onPublish: () => void; }> = ({ group, onClose, onPublish }) => {
-  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(group.posts.filter(p => !p.published).map(p => p.platform));
+
+const PublishModal: React.FC<{
+  group: GroupedContent;
+  onClose: () => void;
+  onPublish: () => void;
+}> = ({ group, onClose, onPublish }) => {
+  const isVideo = group.primaryPost.source_type === 'video';
+  const availablePlatforms: Platform[] = isVideo 
+    ? ['facebook', 'instagram', 'linkedin', 'tiktok']
+    : ['facebook', 'instagram', 'linkedin'];
+
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(
+    group.posts.filter(p => !p.published && availablePlatforms.includes(p.platform)).map(p => p.platform)
+  );
   const [loading, setLoading] = useState(false);
 
   const togglePlatform = (platform: Platform) => {
@@ -564,23 +836,27 @@ const PublishModal: React.FC<{ group: GroupedContent; onClose: () => void; onPub
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-2xl rounded-xl shadow-2xl">
           <div className="flex items-center justify-between p-4 border-b border-gray-800">
-            <h2 className="text-lg font-bold text-white">Publish Content</h2>
+            <h2 className="text-lg font-bold text-white">Publish {isVideo ? 'Video' : 'Content'}</h2>
             <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
           </div>
           <div className="p-6 space-y-4">
-            <p className="text-sm text-gray-400 mb-4">Select platforms to publish to:</p>
-            {group.posts.map(post => {
-              const isPublished = post.published;
-              const isSelected = selectedPlatforms.includes(post.platform);
+            <p className="text-sm text-gray-400 mb-4">
+              Select platforms to publish to{!isVideo && ' (Images: FB, IG, LI only)'}:
+            </p>
+            {availablePlatforms.map(platform => {
+              const existingPost = group.posts.find(p => p.platform === platform);
+              const isPublished = existingPost?.published;
+              const isSelected = selectedPlatforms.includes(platform);
+
               return (
-                <div key={post.id} className={`flex items-center justify-between p-4 rounded-lg border ${isPublished ? 'border-green-700 bg-green-900/20' : isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50'}`}>
+                <div key={platform} className={`flex items-center justify-between p-4 rounded-lg border ${isPublished ? 'border-green-700 bg-green-900/20' : isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50'}`}>
                   <div className="flex items-center space-x-3">
-                    {PLATFORM_ICONS[post.platform]}
-                    <span className="text-white">{PLATFORM_NAMES[post.platform]}</span>
+                    {PLATFORM_ICONS[platform]}
+                    <span className="text-white">{PLATFORM_NAMES[platform]}</span>
                     {isPublished && <span className="text-xs text-green-400">✓ Already published</span>}
                   </div>
                   {!isPublished && (
-                    <input type="checkbox" checked={isSelected} onChange={() => togglePlatform(post.platform)} className="w-5 h-5 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]" />
+                    <input type="checkbox" checked={isSelected} onChange={() => togglePlatform(platform)} className="w-5 h-5 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]" />
                   )}
                 </div>
               );
@@ -598,13 +874,20 @@ const PublishModal: React.FC<{ group: GroupedContent; onClose: () => void; onPub
   );
 };
 
-const ConvertToPostModal: React.FC<{ imageUrl: string; sourcePostId: string; onClose: () => void; onSuccess: () => void; }> = ({ imageUrl, sourcePostId, onClose, onSuccess }) => {
+const ConvertToPostModal: React.FC<{
+  imageUrl: string;
+  sourcePostId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ imageUrl, sourcePostId, onClose, onSuccess }) => {
   const [caption, setCaption] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
   const [category, setCategory] = useState('');
   const [tags, setTags] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const availablePlatforms: Platform[] = ['facebook', 'instagram', 'linkedin'];
 
   const togglePlatform = (platform: Platform) => {
     if (selectedPlatforms.includes(platform)) {
@@ -668,9 +951,9 @@ const ConvertToPostModal: React.FC<{ imageUrl: string; sourcePostId: string; onC
               <p className="text-xs text-gray-500 mt-1">Leave blank to let AI generate a caption based on the image</p>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-400 mb-3">Select Platforms</label>
+              <label className="block text-sm font-semibold text-gray-400 mb-3">Select Platforms (FB, IG, LI only)</label>
               <div className="grid grid-cols-2 gap-3">
-                {(['facebook', 'instagram', 'linkedin', 'tiktok'] as Platform[]).map(platform => {
+                {availablePlatforms.map(platform => {
                   const isSelected = selectedPlatforms.includes(platform);
                   return (
                     <button key={platform} onClick={() => togglePlatform(platform)} className={`flex items-center space-x-3 p-4 rounded-lg border-2 transition-all ${isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
@@ -709,6 +992,7 @@ const ConvertToPostModal: React.FC<{ imageUrl: string; sourcePostId: string; onC
   );
 };
 
+
 const DashboardPage = () => {
   const router = useRouter();
   const { user, loading: sessionLoading } = useUserSession();
@@ -729,9 +1013,13 @@ const DashboardPage = () => {
 
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const [publishModalOpen, setPublishModalOpen] = useState(false);
-  const [convertModalOpen, setConvertModalOpen] = useState(false);
+  const [convertChoiceOpen, setConvertChoiceOpen] = useState(false);
+  const [convertToPostOpen, setConvertToPostOpen] = useState(false);
+  const [convertToVideoOpen, setConvertToVideoOpen] = useState(false);
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<GroupedContent | null>(null);
   const [selectedPost, setSelectedPost] = useState<DashboardPost | null>(null);
+  const [feedbackPostId, setFeedbackPostId] = useState<string | null>(null);
 
   useEffect(() => {
     if (userId) {
@@ -745,14 +1033,39 @@ const DashboardPage = () => {
     setViewDetailsOpen(true);
   };
 
-  const handleOpenPublish = (group: GroupedContent) => {
-    setSelectedGroup(group);
+  const handleOpenPublish = (groupOrPost: GroupedContent | DashboardPost) => {
+    if ('posts' in groupOrPost) {
+      setSelectedGroup(groupOrPost);
+    } else {
+      setSelectedGroup({
+        contentGroupId: groupOrPost.id,
+        posts: [groupOrPost],
+        primaryPost: groupOrPost,
+        platforms: [],
+        allPublished: false,
+      });
+    }
     setPublishModalOpen(true);
   };
 
-  const handleConvertToPost = (post: DashboardPost) => {
+  const handleConvertChoice = (post: DashboardPost) => {
     setSelectedPost(post);
-    setConvertModalOpen(true);
+    setConvertChoiceOpen(true);
+  };
+
+  const handleSelectImagePost = () => {
+    setConvertChoiceOpen(false);
+    setConvertToPostOpen(true);
+  };
+
+  const handleSelectVideo = () => {
+    setConvertChoiceOpen(false);
+    setConvertToVideoOpen(true);
+  };
+
+  const handleOpenFeedback = (postId: string) => {
+    setFeedbackPostId(postId);
+    setFeedbackModalOpen(true);
   };
 
   const handleDelete = async (postId: string) => {
@@ -824,25 +1137,37 @@ const DashboardPage = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {grouped.map(group => (
-              <CarouselCard key={group.contentGroupId} group={group} onViewDetails={handleViewDetails} onPublish={handleOpenPublish} onDelete={handleDelete} />
+              <CarouselCard key={group.contentGroupId} group={group} onViewDetails={handleViewDetails} onPublish={handleOpenPublish} onDelete={handleDelete} onFeedback={handleOpenFeedback} />
             ))}
             {standalone.map(post => (
-              <StandaloneCard key={post.id} post={post} onDelete={handleDelete} onConvertToPost={handleConvertToPost} onViewDetails={handleViewDetails} />
+              <StandaloneCard key={post.id} post={post} onDelete={handleDelete} onConvertChoice={handleConvertChoice} onViewDetails={handleViewDetails} onPublish={(post) => handleOpenPublish(post)} onFeedback={handleOpenFeedback} />
             ))}
           </div>
         )}
       </div>
 
       {viewDetailsOpen && selectedGroup && (
-        <ViewDetailsModal group={selectedGroup} onClose={() => { setViewDetailsOpen(false); setSelectedGroup(null); }} />
+        <ViewDetailsModal group={selectedGroup} onClose={() => { setViewDetailsOpen(false); setSelectedGroup(null); }} onUpdate={refetch} />
       )}
 
       {publishModalOpen && selectedGroup && (
         <PublishModal group={selectedGroup} onClose={() => { setPublishModalOpen(false); setSelectedGroup(null); }} onPublish={refetch} />
       )}
 
-      {convertModalOpen && selectedPost && (
-        <ConvertToPostModal imageUrl={selectedPost.image_url!} sourcePostId={selectedPost.id} onClose={() => { setConvertModalOpen(false); setSelectedPost(null); }} onSuccess={refetch} />
+      {convertChoiceOpen && selectedPost && (
+        <ConvertChoiceModal post={selectedPost} onClose={() => { setConvertChoiceOpen(false); setSelectedPost(null); }} onSelectImagePost={handleSelectImagePost} onSelectVideo={handleSelectVideo} />
+      )}
+
+      {convertToPostOpen && selectedPost && (
+        <ConvertToPostModal imageUrl={selectedPost.image_url!} sourcePostId={selectedPost.id} onClose={() => { setConvertToPostOpen(false); setSelectedPost(null); }} onSuccess={refetch} />
+      )}
+
+      {convertToVideoOpen && selectedPost && (
+        <ConvertToVideoModal imageUrl={selectedPost.image_url!} sourcePostId={selectedPost.id} onClose={() => { setConvertToVideoOpen(false); setSelectedPost(null); }} onSuccess={refetch} />
+      )}
+
+      {feedbackModalOpen && feedbackPostId && (
+        <FeedbackModal postId={feedbackPostId} onClose={() => { setFeedbackModalOpen(false); setFeedbackPostId(null); }} onSuccess={refetch} />
       )}
     </div>
   );
