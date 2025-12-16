@@ -182,15 +182,25 @@ const groupPostsByContentGroup = (posts: DashboardPost[]): {
     };
   });
 
-  grouped.sort((a, b) => 
+  // FILTER OUT single-item groups (they should be standalone)
+  const filteredGrouped = grouped.filter(g => g.posts.length > 1);
+  const singleItemGroups = grouped
+    .filter(g => g.posts.length === 1)
+    .map(g => g.primaryPost);
+  
+  // Add single-item groups to standalone
+  const allStandalone = [...standalone, ...singleItemGroups];
+  
+  // Sort both arrays
+  filteredGrouped.sort((a, b) => 
     new Date(b.primaryPost.created_at).getTime() - new Date(a.primaryPost.created_at).getTime()
   );
   
-  standalone.sort((a, b) => 
+  allStandalone.sort((a, b) => 
     new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
-  return { grouped, standalone };
+  return { grouped: filteredGrouped, standalone: allStandalone };
 };
 
 const getPublishedPlatforms = (post: DashboardPost): Array<{ platform: Platform; url: string }> => {
@@ -1088,12 +1098,18 @@ const GroupedCards: React.FC<{
           onClick={onToggle}
           className="absolute -top-2 -right-2 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-xs font-semibold px-3 py-1 rounded-full shadow-lg transition-all flex items-center z-10"
         >
-          <span className="underline mr-1">Expand</span>
+          <span className="underline mr-1">Expand ({group.posts.length})</span>
           <ChevronRight className="w-3 h-3" />
         </button>
 
+        {/* Visual depth - cards behind */}
         <div className="absolute -bottom-1 -right-1 w-full h-full bg-gray-800/30 rounded-xl -z-10"></div>
         <div className="absolute -bottom-2 -right-2 w-full h-full bg-gray-800/15 rounded-xl -z-20"></div>
+        
+        {/* Platform count tag */}
+        <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-3 py-1 rounded-full shadow-lg whitespace-nowrap z-10">
+          {group.posts.length} platform{group.posts.length > 1 ? 's' : ''}
+        </div>
       </div>
     );
   }
