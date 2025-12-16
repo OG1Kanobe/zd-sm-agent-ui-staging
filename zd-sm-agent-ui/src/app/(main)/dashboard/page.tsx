@@ -1035,7 +1035,7 @@ const SingleCard: React.FC<{
                   className="flex-1 px-4 py-2 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-sm rounded-lg font-semibold transition-colors flex items-center justify-center"
                 >
                   <Send className="w-4 h-4 mr-2" />
-                  {post.published ? 'Publish More' : 'Publish'}
+                  {post.published ? 'Publish +' : 'Publish'}
                 </button>
               ) : null;
             })()}
