@@ -672,13 +672,15 @@ const PublishModal: React.FC<{
             <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
           </div>
           <div className="p-6 space-y-6">
-            <div>
+           <div>
               <h3 className="text-sm font-semibold text-gray-400 mb-3">Post to:</h3>
-              <div className="flex items-center justify-between p-4 rounded-lg border-2 border-[#5ccfa2] bg-[#5ccfa2]/10">
+              <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${post.platform_post_url ? 'border-green-600 bg-green-600/10 opacity-60' : 'border-[#5ccfa2] bg-[#5ccfa2]/10'}`}>
                 <div className="flex items-center space-x-3">
                   {PLATFORM_ICONS[post.platform]}
                   <span className="text-white font-semibold">{PLATFORM_NAMES[post.platform]}</span>
-                  <span className="text-xs text-gray-400">(Original platform)</span>
+                  <span className="text-xs text-gray-400">
+                    {post.platform_post_url ? '(Already published)' : '(Original platform)'}
+                  </span>
                 </div>
                 <Check className="w-5 h-5 text-[#5ccfa2]" />
               </div>
@@ -688,8 +690,27 @@ const PublishModal: React.FC<{
               <div>
                 <h3 className="text-sm font-semibold text-gray-400 mb-3">Cross-post to:</h3>
                 <div className="space-y-3">
-                  {availableCrossPosts.map(platform => {
+                 {availableCrossPosts.map(platform => {
+                    const alreadyPublished = 
+                      (platform === 'facebook' && post.fb_crosspost_url) ||
+                      (platform === 'instagram' && post.ig_crosspost_url) ||
+                      (platform === 'linkedin' && post.li_crosspost_url) ||
+                      (platform === 'tiktok' && post.tt_crosspost_url);
                     const isSelected = crossPostPlatforms.includes(platform);
+                    
+                    if (alreadyPublished) {
+                      return (
+                        <div key={platform} className="w-full flex items-center justify-between p-4 rounded-lg border-2 border-green-600 bg-green-600/10 opacity-60">
+                          <div className="flex items-center space-x-3">
+                            <div className="text-green-400">{PLATFORM_ICONS[platform]}</div>
+                            <span className="text-white font-semibold">{PLATFORM_NAMES[platform]}</span>
+                            <span className="text-xs text-gray-400">(Already published)</span>
+                          </div>
+                          <Check className="w-5 h-5 text-green-400" />
+                        </div>
+                      );
+                    }
+                    
                     return (
                       <button key={platform} onClick={() => toggleCrossPost(platform)} className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
                         <div className="flex items-center space-x-3">
@@ -997,7 +1018,7 @@ const SingleCard: React.FC<{
             View
           </button>
           
-          {isVideoSource && onConvertToVideo ? (
+         {isVideoSource && onConvertToVideo ? (
             <button 
               onClick={() => onConvertToVideo(post)} 
               className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg font-semibold transition-colors flex items-center justify-center"
@@ -1005,15 +1026,19 @@ const SingleCard: React.FC<{
               <VideoIcon className="w-4 h-4 mr-2" />
               Convert
             </button>
-          ) : !post.published && (
-            <button 
-              onClick={() => onPublish(post)} 
-              className="flex-1 px-4 py-2 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-sm rounded-lg font-semibold transition-colors flex items-center justify-center"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              Publish
-            </button>
-          )}
+          ) : (() => {
+              const maxPlatforms = isVideo ? 4 : 3;
+              const canPublishMore = publishedPlatforms.length < maxPlatforms;
+              return canPublishMore ? (
+                <button 
+                  onClick={() => onPublish(post)} 
+                  className="flex-1 px-4 py-2 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-sm rounded-lg font-semibold transition-colors flex items-center justify-center"
+                >
+                  <Send className="w-4 h-4 mr-2" />
+                  {post.published ? 'Publish More' : 'Publish'}
+                </button>
+              ) : null;
+            })()}
           
           <div className="relative">
             <button 
