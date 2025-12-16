@@ -1225,15 +1225,26 @@ const DashboardPage = () => {
   };
 
   const allContentItems = useMemo(() => {
-    const items: Array<{ type: 'group' | 'standalone'; data: GroupedContent | DashboardPost }> = [];
+    const items: Array<{ type: 'group' | 'standalone'; data: GroupedContent | DashboardPost; date: Date }> = [];
     
     groupedContent.forEach(group => {
-      items.push({ type: 'group', data: group });
+      items.push({ 
+        type: 'group', 
+        data: group, 
+        date: new Date(group.primaryPost.created_at) 
+      });
     });
     
     standaloneContent.forEach(post => {
-      items.push({ type: 'standalone', data: post });
+      items.push({ 
+        type: 'standalone', 
+        data: post, 
+        date: new Date(post.created_at) 
+      });
     });
+    
+    // Sort by date (newest first)
+    items.sort((a, b) => b.date.getTime() - a.date.getTime());
     
     return items;
   }, [groupedContent, standaloneContent]);
