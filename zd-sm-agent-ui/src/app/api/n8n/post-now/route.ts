@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
     const { 
       clientConfigId, 
       prompt,
+      style,
       referenceType,
       referenceUrl,
       referenceVideo,
@@ -135,6 +136,7 @@ export async function POST(req: NextRequest) {
       
       // Generation parameters
       prompt: prompt.trim(),
+      style: style || 'realism',
       referenceType: referenceType || 'none',
       referenceUrl: referenceUrl || null,
       referenceVideo: referenceVideo || null,

@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     // 4. VERIFY OWNERSHIP OF ALL POSTS (RLS + extra check)
     const { data: posts, error: fetchError } = await supabase
-      .from('posts')
+      .from('posts_v2') //latest change - changed to new posts table
       .select('id, user_id, platform')
       .in('id', postIds);
 

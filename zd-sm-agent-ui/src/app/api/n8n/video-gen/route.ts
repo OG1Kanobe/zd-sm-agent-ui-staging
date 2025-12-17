@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
       clientConfigId,
       videoSource, // 'text' or 'image'
       prompt,
+      style,
+      purpose,
       referenceType,
       referenceUrl,
       referenceVideo,
@@ -135,6 +137,8 @@ export async function POST(req: NextRequest) {
       // Video generation parameters
       videoSource,
       prompt: prompt.trim(),
+      style: style || 'realism',
+      purpose: purpose || 'Social Media Ad',
       referenceType: videoSource === 'text' ? (referenceType || 'none') : 'none',
       referenceUrl: videoSource === 'text' ? (referenceUrl || null) : null,
       referenceVideo: videoSource === 'text' ? (referenceVideo || null) : null,
