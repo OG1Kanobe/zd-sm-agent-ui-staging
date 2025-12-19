@@ -40,5 +40,5 @@ export async function GET(req: NextRequest) {
   authUrl.searchParams.set('scope', scopes);
   authUrl.searchParams.set('state', userId);
 
-  return NextResponse.redirect(authUrl.toString());
+ return NextResponse.json({ success: true, authUrl: authUrl.toString() });
 }

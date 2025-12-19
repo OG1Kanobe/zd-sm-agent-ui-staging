@@ -37,5 +37,5 @@ export async function GET(req: NextRequest) {
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('state', userId); // Pass userId as state
 
-  return NextResponse.redirect(authUrl.toString());
+  return NextResponse.json({ success: true, authUrl: authUrl.toString() });
 }
