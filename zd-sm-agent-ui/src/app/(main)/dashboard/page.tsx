@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { useUserSession } from '@/hooks/use-user-session';
 import { FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
+import { authenticatedFetch } from '@/lib/api-client';
 
 type Platform = 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'none';
 type SourceType = 'social_post' | 'standalone_image' | 'video' | 'video_source';
@@ -644,11 +645,10 @@ const PublishModal: React.FC<{
       if (selectedPlatforms.includes('linkedin')) payload.li_publish = post.id;
       if (selectedPlatforms.includes('tiktok')) payload.tt_publish = post.id;
 
-      const publishResponse = await fetch('/api/n8n/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+     const publishResponse = await authenticatedFetch('/api/n8n/publish', {
+  method: 'POST',
+  body: JSON.stringify(payload),
+});
 
       if (!publishResponse.ok) throw new Error('Publishing failed');
       
