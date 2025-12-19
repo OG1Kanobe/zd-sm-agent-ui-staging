@@ -18,17 +18,15 @@ export async function POST(req: NextRequest) {
     // 2. PARSE BODY
     const body = await req.json();
     const { 
-      ig_publish,
-      fb_publish,
-      li_publish,
-      tt_publish,
+      postId,           // Single post ID
+      platforms,        // Array: ['facebook', 'instagram', 'linkedin']
       userId 
     } = body;
 
     // Validate
-    if (!ig_publish && !fb_publish && !li_publish && !tt_publish) {
+    if (!postId || !platforms || platforms.length === 0) {
       return NextResponse.json(
-        { error: 'Must provide at least one post ID to publish' },
+        { error: 'Must provide postId and platforms array' },
         { status: 400 }
       );
     }
@@ -40,39 +38,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. COLLECT POST IDs
-    const postIds = [ig_publish, fb_publish, li_publish, tt_publish].filter(Boolean) as string[];
-
-    // 4. FETCH POST DATA
-    const { data: posts, error: fetchError } = await supabase
+    // 3. FETCH POST DATA
+    const { data: post, error: fetchError } = await supabase
       .from('posts_v2')
-      .select('id, user_id, platform, source_type, image_url, video_url, video_thumbnail_url, caption')
-      .in('id', postIds);
+      .select('id, user_id, source_type, image_url, video_url, video_thumbnail_url, caption, ig_post_link, fb_post_link, li_post_link, tt_post_link')
+      .eq('id', postId)
+      .single();
 
-    if (fetchError || !posts || posts.length === 0) {
-      console.error('[Publish] Failed to fetch posts:', fetchError);
-      return NextResponse.json({ error: 'Posts not found' }, { status: 404 });
+    if (fetchError || !post) {
+      console.error('[Publish] Failed to fetch post:', fetchError);
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
     // Verify ownership
-    const invalidPosts = posts.filter((p: any) => p.user_id !== user.id);
-    if (invalidPosts.length > 0) {
+    if (post.user_id !== user.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    const primaryPost = posts[0];
+    // 4. DETERMINE WHICH PLATFORMS NEED PUBLISHING
+    // Filter out platforms that already have post_link
+    const platformsToPublish = platforms.filter((platform: string) => {
+      switch(platform) {
+        case 'instagram': return !post.ig_post_link;
+        case 'facebook': return !post.fb_post_link;
+        case 'linkedin': return !post.li_post_link;
+        case 'tiktok': return !post.tt_post_link;
+        default: return false;
+      }
+    });
 
-    // 5. DETERMINE PLATFORMS
-    const selectedPlatforms: string[] = [];
-    if (ig_publish) selectedPlatforms.push('instagram');
-    if (fb_publish) selectedPlatforms.push('facebook');
-    if (li_publish) selectedPlatforms.push('linkedin');
-    if (tt_publish) selectedPlatforms.push('tiktok');
+    if (platformsToPublish.length === 0) {
+      return NextResponse.json(
+        { error: 'All selected platforms already published' },
+        { status: 400 }
+      );
+    }
 
-    const originalPlatform = primaryPost.platform;
-    const crosspostTo = selectedPlatforms.filter(p => p !== originalPlatform);
-
-    // 6. FETCH SOCIAL TOKENS
+    // 5. FETCH SOCIAL TOKENS
     const { data: socialProfile, error: socialError } = await supabase
       .from('user_social_profiles')
       .select('*')
@@ -84,10 +86,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch social tokens' }, { status: 500 });
     }
 
-    // 7. BUILD TOKENS OBJECT
+    // 6. BUILD TOKENS OBJECT (only for selected platforms)
     const tokens: any = {};
     
-    if (selectedPlatforms.includes('facebook')) {
+    if (platformsToPublish.includes('facebook')) {
       tokens.facebook = {
         userId: socialProfile.facebook_user_id,
         accessToken: socialProfile.long_lived_access_token,
@@ -96,7 +98,7 @@ export async function POST(req: NextRequest) {
       };
     }
     
-    if (selectedPlatforms.includes('instagram')) {
+    if (platformsToPublish.includes('instagram')) {
       tokens.instagram = {
         businessId: socialProfile.instagram_business_id,
         username: socialProfile.instagram_username,
@@ -105,14 +107,14 @@ export async function POST(req: NextRequest) {
       };
     }
     
-    if (selectedPlatforms.includes('linkedin')) {
+    if (platformsToPublish.includes('linkedin')) {
       tokens.linkedin = {
         organizations: socialProfile.linkedin_organizations,
         accessToken: socialProfile.linkedin_access_token,
       };
     }
     
-    if (selectedPlatforms.includes('tiktok')) {
+    if (platformsToPublish.includes('tiktok')) {
       tokens.tiktok = {
         userId: socialProfile.tiktok_user_id,
         accessToken: socialProfile.tiktok_access_token,
@@ -120,7 +122,7 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // 8. FETCH LINKEDIN ORG
+    // 7. FETCH LINKEDIN ORG
     const { data: configData } = await supabase
       .from('client_configs')
       .select('linkedin_organization_urn')
@@ -129,18 +131,17 @@ export async function POST(req: NextRequest) {
 
     const linkedinOrgUrn = configData?.linkedin_organization_urn || null;
 
-    // 9. BUILD WEBHOOK PAYLOAD
+    // 8. BUILD WEBHOOK PAYLOAD
     const webhookPayload = {
-      postId: primaryPost.id,
-      contentType: primaryPost.source_type === 'video' ? 'video' : 'social_post',
-      originalPlatform,
-      crosspostTo,
+      postId: post.id,
+      contentType: post.source_type === 'video' ? 'video' : 'social_post',
+      platforms: platformsToPublish,  // Platforms to publish to
       
       // Media
-      imageUrl: primaryPost.image_url,
-      videoUrl: primaryPost.video_url,
-      videoThumbnail: primaryPost.video_thumbnail_url,
-      caption: primaryPost.caption,
+      imageUrl: post.image_url,
+      videoUrl: post.video_url,
+      videoThumbnail: post.video_thumbnail_url,
+      caption: post.caption,
       
       // Auth
       userId: user.id,
@@ -153,12 +154,11 @@ export async function POST(req: NextRequest) {
     console.log('[Publish] Webhook payload:', {
       postId: webhookPayload.postId,
       contentType: webhookPayload.contentType,
-      originalPlatform: webhookPayload.originalPlatform,
-      crosspostTo: webhookPayload.crosspostTo,
-      platformCount: selectedPlatforms.length,
+      platforms: webhookPayload.platforms,
+      platformCount: platformsToPublish.length,
     });
 
-    // 10. TRIGGER WEBHOOK
+    // 9. TRIGGER WEBHOOK
     const webhookUrl = process.env.N8N_ON_DEMAND_WEBHOOK_URL;
     if (!webhookUrl) {
       console.error('[Publish] Webhook URL not configured');
@@ -188,9 +188,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ 
       success: true,
-      message: `Publishing to ${selectedPlatforms.length} platform(s)`,
-      postIds,
-      platforms: selectedPlatforms,
+      message: `Publishing to ${platformsToPublish.length} platform(s)`,
+      postId,
+      platforms: platformsToPublish,
     });
 
   } catch (err: any) {
