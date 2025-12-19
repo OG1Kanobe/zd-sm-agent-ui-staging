@@ -35,8 +35,6 @@ interface DashboardPost {
   status: PostStatus;
   published: boolean;
   published_at: string | null;
-  platform_post_id: string | null;
-  platform_post_url: string | null;
   created_at: string;
   discard: boolean;
   parent_post_id: string | null;
@@ -45,15 +43,16 @@ interface DashboardPost {
   feedback_comment: string | null;
   video_style: string | null;
   video_purpose: string | null;
-  crossposted: boolean | null;
-  fb_crosspost_id: string | null;
-  fb_crosspost_url: string | null;
-  ig_crosspost_id: string | null;
-  ig_crosspost_url: string | null;
-  li_crosspost_id: string | null;
-  li_crosspost_url: string | null;
-  tt_crosspost_id: string | null;
-  tt_crosspost_url: string | null;
+ig_post_id: string | null;
+  ig_post_link: string | null;
+  fb_post_id: string | null;
+  fb_post_link: string | null;
+  li_post_id: string | null;
+  li_post_link: string | null;
+  tt_post_id: string | null;
+  tt_post_link: string | null;
+  ai_models_used: any;
+  cost_breakdown: any;
 }
 
 interface GroupedContent {
@@ -207,24 +206,20 @@ const groupPostsByContentGroup = (posts: DashboardPost[]): {
 const getPublishedPlatforms = (post: DashboardPost): Array<{ platform: Platform; url: string }> => {
   const platforms: Array<{ platform: Platform; url: string }> = [];
   
-  if (post.platform_post_url && post.platform !== 'none') {
-    platforms.push({ platform: post.platform, url: post.platform_post_url });
+  if (post.ig_post_link) {
+    platforms.push({ platform: 'instagram', url: post.ig_post_link });
   }
   
-  if (post.fb_crosspost_url) {
-    platforms.push({ platform: 'facebook', url: post.fb_crosspost_url });
+  if (post.fb_post_link) {
+    platforms.push({ platform: 'facebook', url: post.fb_post_link });
   }
   
-  if (post.ig_crosspost_url) {
-    platforms.push({ platform: 'instagram', url: post.ig_crosspost_url });
+  if (post.li_post_link) {
+    platforms.push({ platform: 'linkedin', url: post.li_post_link });
   }
   
-  if (post.li_crosspost_url) {
-    platforms.push({ platform: 'linkedin', url: post.li_crosspost_url });
-  }
-  
-  if (post.tt_crosspost_url) {
-    platforms.push({ platform: 'tiktok', url: post.tt_crosspost_url });
+  if (post.tt_post_link) {
+    platforms.push({ platform: 'tiktok', url: post.tt_post_link });
   }
   
   return platforms;
@@ -612,43 +607,51 @@ const PublishModal: React.FC<{
   onSuccess: () => void;
 }> = ({ post, allGroupPlatforms, onClose, onSuccess }) => {
   const isVideo = post.source_type === 'video';
-  const availableCrossPosts: Platform[] = (isVideo 
-    ? (['facebook', 'instagram', 'linkedin', 'tiktok'] as Platform[]).filter(p => p !== post.platform)
-    : (['facebook', 'instagram', 'linkedin'] as Platform[]).filter(p => p !== post.platform));
+  const availablePlatforms: Platform[] = isVideo 
+    ? ['facebook', 'instagram', 'linkedin', 'tiktok']
+    : ['facebook', 'instagram', 'linkedin'];
 
-  const [crossPostPlatforms, setCrossPostPlatforms] = useState<Platform[]>([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(() => {
+    // Pre-select unpublished platforms
+    return availablePlatforms.filter(platform => {
+      switch(platform) {
+        case 'instagram': return !post.ig_post_link;
+        case 'facebook': return !post.fb_post_link;
+        case 'linkedin': return !post.li_post_link;
+        case 'tiktok': return !post.tt_post_link;
+        default: return false;
+      }
+    });
+  });
+  
   const [loading, setLoading] = useState(false);
 
-  const toggleCrossPost = (platform: Platform) => {
-    if (crossPostPlatforms.includes(platform)) {
-      setCrossPostPlatforms(crossPostPlatforms.filter(p => p !== platform));
+  const togglePlatform = (platform: Platform) => {
+    if (selectedPlatforms.includes(platform)) {
+      setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
     } else {
-      setCrossPostPlatforms([...crossPostPlatforms, platform]);
+      setSelectedPlatforms([...selectedPlatforms, platform]);
     }
   };
 
   const handlePublish = async () => {
+    if (selectedPlatforms.length === 0) {
+      alert('Please select at least one platform');
+      return;
+    }
+
     setLoading(true);
     try {
-      const selectedPlatforms = [post.platform, ...crossPostPlatforms];
-      
-      const payload: any = { 
-        ig_publish: null, 
-        fb_publish: null, 
-        li_publish: null, 
-        tt_publish: null, 
+      const payload = { 
+        postId: post.id,
+        platforms: selectedPlatforms,
         userId: post.user_id 
       };
-      
-      if (selectedPlatforms.includes('facebook')) payload.fb_publish = post.id;
-      if (selectedPlatforms.includes('instagram')) payload.ig_publish = post.id;
-      if (selectedPlatforms.includes('linkedin')) payload.li_publish = post.id;
-      if (selectedPlatforms.includes('tiktok')) payload.tt_publish = post.id;
 
-     const publishResponse = await authenticatedFetch('/api/n8n/publish', {
-  method: 'POST',
-  body: JSON.stringify(payload),
-});
+      const publishResponse = await authenticatedFetch('/api/n8n/publish', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
 
       if (!publishResponse.ok) throw new Error('Publishing failed');
       
@@ -668,70 +671,51 @@ const PublishModal: React.FC<{
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-6">
         <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-2xl rounded-xl shadow-2xl">
           <div className="flex items-center justify-between p-4 border-b border-gray-800">
-            <h2 className="text-lg font-bold text-white">Publish {PLATFORM_NAMES[post.platform]} Content</h2>
+            <h2 className="text-lg font-bold text-white">Publish Content</h2>
             <button onClick={onClose} className="p-2 rounded-lg bg-transparent hover:bg-gray-800 transition-colors"><X className="w-5 h-5 text-gray-400" /></button>
           </div>
           <div className="p-6 space-y-6">
-           <div>
-              <h3 className="text-sm font-semibold text-gray-400 mb-3">Post to:</h3>
-              <div className={`flex items-center justify-between p-4 rounded-lg border-2 ${post.platform_post_url ? 'border-green-600 bg-green-600/10 opacity-60' : 'border-[#5ccfa2] bg-[#5ccfa2]/10'}`}>
-                <div className="flex items-center space-x-3">
-                  {PLATFORM_ICONS[post.platform]}
-                  <span className="text-white font-semibold">{PLATFORM_NAMES[post.platform]}</span>
-                  <span className="text-xs text-gray-400">
-                    {post.platform_post_url ? '(Already published)' : '(Original platform)'}
-                  </span>
-                </div>
-                <Check className="w-5 h-5 text-[#5ccfa2]" />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-400 mb-3">Select platforms to publish to:</h3>
+              <div className="space-y-3">
+                {availablePlatforms.map(platform => {
+                  const alreadyPublished = 
+                    (platform === 'facebook' && post.fb_post_link) ||
+                    (platform === 'instagram' && post.ig_post_link) ||
+                    (platform === 'linkedin' && post.li_post_link) ||
+                    (platform === 'tiktok' && post.tt_post_link);
+                  const isSelected = selectedPlatforms.includes(platform);
+                  
+                  if (alreadyPublished) {
+                    return (
+                      <div key={platform} className="w-full flex items-center justify-between p-4 rounded-lg border-2 border-green-600 bg-green-600/10 opacity-60">
+                        <div className="flex items-center space-x-3">
+                          <div className="text-green-400">{PLATFORM_ICONS[platform]}</div>
+                          <span className="text-white font-semibold">{PLATFORM_NAMES[platform]}</span>
+                          <span className="text-xs text-gray-400">(Already published)</span>
+                        </div>
+                        <Check className="w-5 h-5 text-green-400" />
+                      </div>
+                    );
+                  }
+                  
+                  return (
+                    <button key={platform} onClick={() => togglePlatform(platform)} className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
+                      <div className="flex items-center space-x-3">
+                        <div className={isSelected ? 'text-[#5ccfa2]' : 'text-gray-400'}>{PLATFORM_ICONS[platform]}</div>
+                        <span className={isSelected ? 'text-white font-semibold' : 'text-gray-300'}>{PLATFORM_NAMES[platform]}</span>
+                      </div>
+                      {isSelected && <Check className="w-5 h-5 text-[#5ccfa2]" />}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-
-            {availableCrossPosts.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-gray-400 mb-3">Cross-post to:</h3>
-                <div className="space-y-3">
-                 {availableCrossPosts.map(platform => {
-                    const alreadyPublished = 
-                      (platform === 'facebook' && post.fb_crosspost_url) ||
-                      (platform === 'instagram' && post.ig_crosspost_url) ||
-                      (platform === 'linkedin' && post.li_crosspost_url) ||
-                      (platform === 'tiktok' && post.tt_crosspost_url);
-                    const isSelected = crossPostPlatforms.includes(platform);
-                    
-                    if (alreadyPublished) {
-                      return (
-                        <div key={platform} className="w-full flex items-center justify-between p-4 rounded-lg border-2 border-green-600 bg-green-600/10 opacity-60">
-                          <div className="flex items-center space-x-3">
-                            <div className="text-green-400">{PLATFORM_ICONS[platform]}</div>
-                            <span className="text-white font-semibold">{PLATFORM_NAMES[platform]}</span>
-                            <span className="text-xs text-gray-400">(Already published)</span>
-                          </div>
-                          <Check className="w-5 h-5 text-green-400" />
-                        </div>
-                      );
-                    }
-                    
-                    return (
-                      <button key={platform} onClick={() => toggleCrossPost(platform)} className={`w-full flex items-center justify-between p-4 rounded-lg border-2 transition-all ${isSelected ? 'border-[#5ccfa2] bg-[#5ccfa2]/10' : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'}`}>
-                        <div className="flex items-center space-x-3">
-                          <div className={isSelected ? 'text-[#5ccfa2]' : 'text-gray-400'}>{PLATFORM_ICONS[platform]}</div>
-                          <span className={isSelected ? 'text-white font-semibold' : 'text-gray-300'}>{PLATFORM_NAMES[platform]}</span>
-                        </div>
-                        {isSelected && <Check className="w-5 h-5 text-[#5ccfa2]" />}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-xs text-gray-500 mt-3">
-                  ⚠️ Cross-posting will use {PLATFORM_NAMES[post.platform]}'s image and caption
-                </p>
-              </div>
-            )}
           </div>
           <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-800">
             <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-sm transition-colors">Cancel</button>
-            <button onClick={handlePublish} disabled={loading} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${loading ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}>
-              {loading ? <span className="flex items-center"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Publishing...</span> : `Publish to ${1 + crossPostPlatforms.length} Platform${1 + crossPostPlatforms.length !== 1 ? 's' : ''}`}
+            <button onClick={handlePublish} disabled={loading || selectedPlatforms.length === 0} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${loading || selectedPlatforms.length === 0 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'}`}>
+              {loading ? <span className="flex items-center"><Loader2 className="w-4 h-4 mr-2 animate-spin" />Publishing...</span> : `Publish to ${selectedPlatforms.length} Platform${selectedPlatforms.length !== 1 ? 's' : ''}`}
             </button>
           </div>
         </motion.div>
@@ -748,6 +732,7 @@ const ViewDetailsModal: React.FC<{
   onClose: () => void;
   onUpdate: () => void;
 }> = ({ posts, initialPostId, onClose, onUpdate }) => {
+  const { user } = useUserSession();
   const [currentIndex, setCurrentIndex] = useState(
     initialPostId ? posts.findIndex(p => p.id === initialPostId) : 0
   );
@@ -936,6 +921,21 @@ const ViewDetailsModal: React.FC<{
                     )}
                   </div>
                 )}
+
+                {user?.id === 'a1bb9dc6-09bf-4952-bbb2-4248a4e8f544' && currentPost.cost_breakdown && (
+                  <div className="border-t border-gray-700 pt-4 mt-4">
+                    <h3 className="text-sm font-semibold text-gray-400 mb-2">Generation Cost (Admin Only)</h3>
+                    <div className="text-xs text-gray-300 space-y-1">
+                      {currentPost.ai_models_used && (
+                        <p>Models: {JSON.stringify(currentPost.ai_models_used)}</p>
+                      )}
+                      <p className="font-semibold text-[#5ccfa2]">
+                        Total Cost: ${typeof currentPost.cost_breakdown === 'object' ? currentPost.cost_breakdown.total : currentPost.cost_breakdown}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           </div>
@@ -1027,9 +1027,8 @@ const SingleCard: React.FC<{
               Convert
             </button>
           ) : (() => {
-              const maxPlatforms = isVideo ? 4 : 3;
-              const canPublishMore = publishedPlatforms.length < maxPlatforms;
-              return canPublishMore ? (
+              const allPublished = post.ig_post_link && post.fb_post_link && post.li_post_link && (isVideo ? post.tt_post_link : true);
+              return !allPublished ? (
                 <button 
                   onClick={() => onPublish(post)} 
                   className="flex-1 px-4 py-2 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-sm rounded-lg font-semibold transition-colors flex items-center justify-center"
