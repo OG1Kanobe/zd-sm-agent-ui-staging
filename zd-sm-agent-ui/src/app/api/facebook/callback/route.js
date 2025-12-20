@@ -72,7 +72,7 @@ export async function GET(req) {
           fb_token_expires_at: expiresAt,
           facebook_connected: true,
         },
-        { onConflict: ['client_id'] }
+        { onConflict: 'client_id' }
       );
 
     if (dbError) {

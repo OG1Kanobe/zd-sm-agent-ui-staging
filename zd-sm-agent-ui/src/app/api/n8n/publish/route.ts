@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
         accessToken: socialProfile.long_lived_access_token,
         pageId: socialProfile.page_id,
         pageToken: socialProfile.page_access_token,
+        expiresAt: socialProfile.fb_token_expires_at,
       };
     }
     
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
         username: socialProfile.instagram_username,
         userId: socialProfile.instagram_user_id,
         accessToken: socialProfile.instagram_access_token,
+        expiresAt: socialProfile.ig_token_expires_at, 
       };
     }
     
@@ -111,6 +113,7 @@ export async function POST(req: NextRequest) {
       tokens.linkedin = {
         organizations: socialProfile.linkedin_organizations,
         accessToken: socialProfile.linkedin_access_token,
+        expiresAt: socialProfile.li_token_expires_at,
       };
     }
     
@@ -119,6 +122,7 @@ export async function POST(req: NextRequest) {
         userId: socialProfile.tiktok_user_id,
         accessToken: socialProfile.tiktok_access_token,
         refreshToken: socialProfile.tiktok_refresh_token,
+        expiresAt: socialProfile.tt_token_expires_at,
       };
     }
 
