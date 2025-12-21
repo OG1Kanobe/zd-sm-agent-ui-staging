@@ -22,15 +22,19 @@ export async function POST(req: NextRequest) {
       clientConfigId, 
       prompt,
       style,
+ 
+
       referenceType,
       referenceUrl,
       referenceVideo,
       referenceImage,
       referenceArticle,
       oneTimeFile,
+
       generate_FB,
       generate_IG,
       generate_LI,
+
       organic,
       paid,
       category,
@@ -137,6 +141,8 @@ export async function POST(req: NextRequest) {
       // Generation parameters
       prompt: prompt.trim(),
       style: style || 'realism',
+
+
       referenceType: referenceType || 'none',
       referenceUrl: referenceUrl || null,
       referenceVideo: referenceVideo || null,

@@ -502,18 +502,34 @@ const ConvertToVideoModal: React.FC<{
     setError(null);
 
     try {
-      const response = await fetch('/api/posts/convert-to-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourcePostId: post.id,
-          prompt: prompt.trim(),
-          style,
-          purpose,
-          orientation,
-          duration,
-        }),
-      });
+      // Fetch clientConfigId first
+// Fetch clientConfigId
+const { data: configData } = await supabase
+  .from('client_configs')
+  .select('id')
+  .eq('client_id', post.user_id)
+  .single();
+
+if (!configData?.id) {
+  setError('Configuration not found');
+  setLoading(false);
+  return;
+}
+
+const response = await fetch('/api/n8n/video-gen', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    clientConfigId: configData.id,
+    videoSource: 'image',
+    sourceImage: post.image_url,  // ← Changed from sourceImageUrl
+    prompt: prompt.trim(),
+    style,
+    purpose,
+    orientation,
+    duration,
+  }),
+});
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to convert to video');
