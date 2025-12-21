@@ -516,7 +516,7 @@ if (!configData?.id) {
   return;
 }
 
-const response = await fetch('/api/n8n/video-gen', {
+const response = await authenticatedFetch('/api/n8n/video-gen', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
