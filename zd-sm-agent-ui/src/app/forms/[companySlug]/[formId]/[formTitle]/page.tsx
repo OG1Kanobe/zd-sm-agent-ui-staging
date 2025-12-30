@@ -1,9 +1,6 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import React from 'react';
 import { Loader2, CheckCircle } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
 interface Question {
   id: string;
@@ -74,7 +71,7 @@ const QuestionField: React.FC<{
         </div>
       );
 
-      case 'radio':
+    case 'radio':
       return (
         <div>
           <Label />
@@ -117,45 +114,54 @@ const QuestionField: React.FC<{
   }
 };
 
-export default function FormPage() {
-  const params = useParams();
-  const { companySlug, formId, formTitle } = params;
+// SERVER COMPONENT - Fetches form data
+export default async function FormPage({ params }: { 
+  params: { companySlug: string; formId: string; formTitle: string } 
+}) {
+  const { formId } = params;
 
-  const [formData, setFormData] = useState<FormData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    fetchForm();
-  }, [formId]);
-
-  const fetchForm = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('posts_v2')
-        .select('form_id, form_name, form_title, form_schema')
-        .eq('form_id', formId)
-        .not('form_schema', 'is', null)
-        .limit(1)
-        .single();
-
-      if (error || !data) {
-        setError('Form not found');
-        setLoading(false);
-        return;
+  // Server-side Supabase client with service role (no auth required)
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
       }
-
-      setFormData(data as FormData);
-    } catch (err) {
-      console.error('[Form] Fetch error:', err);
-      setError('Failed to load form');
-    } finally {
-      setLoading(false);
     }
-  };
+  );
+
+  // Fetch form data server-side
+  const { data: formData, error } = await supabase
+    .from('posts_v2')
+    .select('form_id, form_name, form_title, form_schema')
+    .eq('form_id', formId)
+    .not('form_schema', 'is', null)
+    .limit(1)
+    .single();
+
+  if (error || !formData) {
+    return (
+      <div className="min-h-screen bg-[#010112] flex items-center justify-center p-6">
+        <div className="bg-[#10101d] border border-red-700 rounded-xl p-8 max-w-md text-center">
+          <p className="text-red-400 text-lg">Form not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <FormContent formData={formData as FormData} />;
+}
+
+// CLIENT COMPONENT - Handles form interaction
+function FormContent({ formData }: { formData: FormData }) {
+  'use client';
+  
+  const [answers, setAnswers] = React.useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = React.useState(false);
+  const [submitted, setSubmitted] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,7 +174,7 @@ export default function FormPage() {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       console.log('Form submission:', {
-        formId,
+        formId: formData.form_id,
         answers
       });
 
@@ -181,24 +187,6 @@ export default function FormPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#010112] flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-[#5ccfa2] animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-[#010112] flex items-center justify-center p-6">
-        <div className="bg-[#10101d] border border-red-700 rounded-xl p-8 max-w-md text-center">
-          <p className="text-red-400 text-lg">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
   if (submitted) {
     return (
       <div className="min-h-screen bg-[#010112] flex items-center justify-center p-6">
@@ -210,8 +198,6 @@ export default function FormPage() {
       </div>
     );
   }
-
-  if (!formData) return null;
 
   return (
     <div className="min-h-screen bg-[#010112]">
