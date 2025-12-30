@@ -1291,7 +1291,7 @@ const GroupedCards: React.FC<{
         <ChevronDown className="w-3 h-3" />
       </button>
 
-      <div className="flex space-x-4">
+      <div className="flex flex-wrap gap-4 max-w-[1456px]"> {/* Used to be <div className="flex space-x-4"></div> */}
         {group.posts.map(post => (
           <SingleCard 
             key={post.id}

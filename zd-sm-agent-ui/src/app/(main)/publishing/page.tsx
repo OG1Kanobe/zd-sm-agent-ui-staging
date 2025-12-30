@@ -322,6 +322,7 @@ const ContentStudioPage = () => {
     const router = useRouter();
     const { user, loading: sessionLoading, session } = useUserSession(); 
     const userId = user?.id;
+    const isAdmin = user?.id === 'a1bb9dc6-09bf-4952-bbb2-4248a4e8f544'; //- making video gen tab availablke only to tiro user id - remove later//
     const jwtToken = session?.access_token || '';
 
     const [configs, setConfigs] = useState<Config | null>(null);
@@ -897,18 +898,22 @@ const ContentStudioPage = () => {
                                 Social Post Generation
                             </button>
 
-                            <button
-                                onClick={() => setActiveTab('video')}
-                                className={`flex-1 py-4 px-6 rounded-lg font-semibold transition-all flex items-center justify-center ${
-                                    activeTab === 'video'
-                                        ? 'bg-[#5ccfa2] text-black'
-                                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                                }`}
-                            >
-                                <Video className="w-5 h-5 mr-2" />
-                                Video Generation
-                            </button>
-                        </div>
+{/*START- MAKING VIDEO TAB RENDER ONLY FOR TIRO ID - REMOVE '{isAdmin && (' AND '(Admin)' WHEN OPEN TO ALL USERS*/}  
+                          {isAdmin && ( 
+        <button
+            onClick={() => setActiveTab('video')}
+            className={`flex-1 py-4 px-6 rounded-lg font-semibold transition-all flex items-center justify-center ${
+                activeTab === 'video'
+                    ? 'bg-[#5ccfa2] text-black'
+                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+        >
+            <Video className="w-5 h-5 mr-2" />
+            Video Generation (Admin)
+        </button>
+    )}
+</div> 
+{/*END - MAKING VIDEO TAB RENDER ONLY FOR TIRO ID - REMOVE '{isAdmin && (' AND '(Admin)' WHEN OPEN TO ALL USERS*/}
 
                         {/* Tab Content */}
                         <AnimatePresence mode="wait">

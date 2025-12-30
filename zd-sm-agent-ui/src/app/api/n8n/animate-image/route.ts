@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     // 4. FETCH SOURCE POST
     const { data: sourcePost, error: fetchError } = await supabase
       .from('posts_v2')
-      .select('id, user_id, content_group_id, caption, category, tags, platform, orientation, animated_version_id')
+      .select('id, user_id, content_group_id, caption, category, tags, platform, orientation, animated_version_id,animate_prompt')
       .eq('id', sourcePostId)
       .single();
 
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       // Animation settings
       duration: duration || '5',
       orientation: sourcePost.orientation || '9:16',
-      animationPrompt: null,  // Future use
+      animationPrompt: sourcePost.animate_prompt || null,  // Future use
       
       // Timestamp
       executedAt: new Date().toISOString(),
