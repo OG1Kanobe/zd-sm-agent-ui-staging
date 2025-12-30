@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Loader2, CheckCircle } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -158,10 +158,10 @@ export default async function FormPage({ params }: {
 function FormContent({ formData }: { formData: FormData }) {
   'use client';
   
-  const [answers, setAnswers] = React.useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = React.useState(false);
-  const [submitted, setSubmitted] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
