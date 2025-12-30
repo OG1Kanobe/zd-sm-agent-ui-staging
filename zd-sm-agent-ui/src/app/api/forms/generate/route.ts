@@ -80,10 +80,18 @@ export async function POST(req: NextRequest) {
     const companyName = config?.company_name || 'Company';
     const companyIndustry = config?.company_industry || '';
     const targetAudience = config?.target_audience || '';
+    const formId = uuidv4();
+const companySlug = companyName
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '');
 
     // 6. BUILD WEBHOOK PAYLOAD FOR n8n
     const webhookPayload = {
       action: 'generate-form',
+
+      formId: formId,
+  companySlug: companySlug,
       
       // Post info
       postId: post.id,
