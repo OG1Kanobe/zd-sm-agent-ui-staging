@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 
 interface Question {
   id: string;
-  type: 'text' | 'email' | 'phone' | 'select' | 'textarea';
+  type: 'text' | 'email' | 'phone' | 'select' | 'textarea' | 'radio';
   label: string;
   placeholder?: string;
   category: string;
@@ -71,6 +71,29 @@ const QuestionField: React.FC<{
               <option key={opt} value={opt}>{opt}</option>
             ))}
           </select>
+        </div>
+      );
+
+      case 'radio':
+      return (
+        <div>
+          <Label />
+          <div className="space-y-2">
+            {question.options?.map((opt) => (
+              <label key={opt} className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name={question.id}
+                  value={opt}
+                  checked={value === opt}
+                  onChange={(e) => onChange(e.target.value)}
+                  required={question.required}
+                  className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 focus:ring-[#5ccfa2]"
+                />
+                <span className="text-white text-sm">{opt}</span>
+              </label>
+            ))}
+          </div>
         </div>
       );
 
