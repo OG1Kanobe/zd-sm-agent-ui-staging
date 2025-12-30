@@ -116,9 +116,9 @@ const QuestionField: React.FC<{
 
 // SERVER COMPONENT - Fetches form data
 export default async function FormPage({ params }: { 
-  params: { companySlug: string; formId: string; formTitle: string } 
+  params: Promise<{ companySlug: string; formId: string; formTitle: string }> 
 }) {
-  const { formId } = params;
+  const { formId } = await params;
 
   // Server-side Supabase client with service role (no auth required)
   const supabase = createClient(
