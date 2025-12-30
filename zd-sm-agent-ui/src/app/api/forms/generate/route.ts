@@ -29,10 +29,10 @@ export async function POST(req: NextRequest) {
 
     // 3. FETCH POST DATA
     const { data: post, error: postError } = await supabase
-      .from('posts_v2')
-      .select('id, user_id, content_group_id, caption, image_url, reference_url, platform')
-      .eq('id', postId)
-      .single();
+  .from('posts_v2')
+  .select('id, user_id, content_group_id, caption, image_url, reference_url, platform, prompt_used, topic')
+  .eq('id', postId)
+  .single();
 
     if (postError || !post) {
       return NextResponse.json(
@@ -81,150 +81,63 @@ export async function POST(req: NextRequest) {
     const companyIndustry = config?.company_industry || '';
     const targetAudience = config?.target_audience || '';
 
-    // 6. GENERATE FORM ID & SLUGS
-    const formId = uuidv4();
-    const companySlug = companyName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
-    // 7. CALL AI TO GENERATE FORM QUESTIONS
-    const aiPrompt = `
-You are a lead qualification form generator for a business in the ${companyIndustry} industry targeting ${targetAudience}.
-
-Based on this social media post:
-Caption: "${post.caption}"
-${post.reference_url ? `Reference: ${post.reference_url}` : ''}
-
-Create a lead qualification form with 5-7 questions that:
-1. Capture contact info (name, email, phone)
-2. Qualify budget/timeline
-3. Understand pain points
-4. Assess fit for the product/service
-
-Return ONLY valid JSON in this exact format (no markdown, no backticks):
-{
-  "formName": "Short name (3-5 words)",
-  "formTitle": "Full descriptive title for the form header",
-  "questions": [
-    {
-      "id": "q1",
-      "type": "text",
-      "label": "What is your full name?",
-      "placeholder": "John Doe",
-      "category": "Contact",
-      "required": true
-    },
-    {
-      "id": "q2",
-      "type": "email",
-      "label": "Work email address",
-      "placeholder": "john@company.com",
-      "category": "Contact",
-      "required": true
-    }
-  ]
-}
-
-Question types allowed: text, email, phone, select, textarea
-Categories: Contact, General, Budget, Timeline, PainPoints
-For "select" type, include "options" array.
-`;
-
-    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
-        messages: [
-          { role: 'user', content: aiPrompt }
-        ]
-      })
-    });
-
-    if (!aiResponse.ok) {
-      console.error('[FormGen] AI request failed:', await aiResponse.text());
-      return NextResponse.json(
-        { error: 'Failed to generate form questions' },
-        { status: 500 }
-      );
-    }
-
-    const aiData = await aiResponse.json();
-    const aiContent = aiData.content[0].text;
-    
-    // Parse AI response (remove markdown if present)
-    let formData;
-    try {
-      const cleanJson = aiContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      formData = JSON.parse(cleanJson);
-    } catch (parseError) {
-      console.error('[FormGen] Failed to parse AI response:', aiContent);
-      return NextResponse.json(
-        { error: 'Invalid AI response format' },
-        { status: 500 }
-      );
-    }
-
-    // 8. GENERATE TITLE SLUG
-    const titleSlug = formData.formTitle
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .substring(0, 50);
-
-    const formUrl = `/forms/${companySlug}/${formId}/${titleSlug}`;
-
-    // 9. UPDATE POST(S) WITH FORM DATA
-    const updateData = {
-      form_id: formId,
-      form_name: formData.formName,
-      form_title: formData.formTitle,
-      form_schema: { questions: formData.questions }
+    // 6. BUILD WEBHOOK PAYLOAD FOR n8n
+    const webhookPayload = {
+      action: 'generate-form',
+      
+      // Post info
+      postId: post.id,
+      contentGroupId: post.content_group_id,
+      caption: post.caption,
+      referenceUrl: post.reference_url,
+      platform: post.platform,
+      prompt: post.prompt_used,
+  topic: post.topic,
+      
+      // User/Company info
+      userId: user.id,
+      companyName,
+      companyIndustry,
+      targetAudience,
+      
+      // Timestamp
+      executedAt: new Date().toISOString(),
     };
 
-    if (contentGroupId) {
-      // Update all posts in the content group
-      const { error: updateError } = await supabase
-        .from('posts_v2')
-        .update(updateData)
-        .eq('content_group_id', contentGroupId);
+    console.log('[FormGen] Webhook payload:', JSON.stringify(webhookPayload, null, 2));
 
-      if (updateError) {
-        console.error('[FormGen] Failed to update posts:', updateError);
-        return NextResponse.json(
-          { error: 'Failed to save form' },
-          { status: 500 }
-        );
-      }
-    } else {
-      // Update single post
-      const { error: updateError } = await supabase
-        .from('posts_v2')
-        .update(updateData)
-        .eq('id', postId);
-
-      if (updateError) {
-        console.error('[FormGen] Failed to update post:', updateError);
-        return NextResponse.json(
-          { error: 'Failed to save form' },
-          { status: 500 }
-        );
-      }
+    // 7. TRIGGER n8n WEBHOOK
+    const webhookUrl = process.env.N8N_FORM_GENERATION_WEBHOOK;
+    if (!webhookUrl) {
+      console.error('[FormGen] Webhook URL not configured');
+      return NextResponse.json(
+        { error: 'Form generation service unavailable' },
+        { status: 500 }
+      );
     }
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(webhookPayload),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error('[FormGen] Webhook failed:', text);
+      return NextResponse.json(
+        { error: `Form generation failed: ${text}` },
+        { status: 500 }
+      );
+    }
+
+    const responseData = await response.json().catch(() => ({}));
+    console.log('[FormGen] Webhook success:', responseData);
 
     return NextResponse.json({
       success: true,
-      formId,
-      formName: formData.formName,
-      formTitle: formData.formTitle,
-      formUrl,
-      message: 'Form created successfully'
+      message: 'Form generation started',
+      postId: post.id
     });
 
   } catch (err: any) {
