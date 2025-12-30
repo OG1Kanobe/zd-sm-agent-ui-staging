@@ -53,6 +53,11 @@ ig_post_id: string | null;
   tt_post_link: string | null;
   ai_models_used: any;
   cost_breakdown: any;
+  animated_version_id: string | null;
+  is_animated_version: boolean;
+  form_id: string | null;
+  form_name: string | null;
+  form_url: string | null;
 }
 
 interface GroupedContent {
@@ -760,6 +765,9 @@ const ViewDetailsModal: React.FC<{
   const [tags, setTags] = useState<string[]>(currentPost.tags || []);
   const [saving, setSaving] = useState(false);
 
+  const [animating, setAnimating] = useState(false);
+  const [creatingForm, setCreatingForm] = useState(false);
+
   useEffect(() => {
     setEditedCaption(currentPost.caption || '');
     setCategory(currentPost.category || '');
@@ -825,6 +833,55 @@ const ViewDetailsModal: React.FC<{
       alert(`Failed to save tags: ${error.message}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAnimateImage = async () => {
+    setAnimating(true);
+    try {
+      const response = await authenticatedFetch('/api/n8n/animate-image', {
+        method: 'POST',
+        body: JSON.stringify({
+          sourcePostId: currentPost.id,
+          sourceImageUrl: currentPost.image_url,
+          duration: '5', // Default 5s for now
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to animate image');
+
+      alert('Image queued for animation! A new card will appear on the dashboard when ready.');
+      onUpdate();
+    } catch (err: any) {
+      console.error('[AnimateImage] Error:', err);
+      alert(`Failed to animate: ${err.message}`);
+    } finally {
+      setAnimating(false);
+    }
+  };
+
+  const handleCreateForm = async () => {
+    setCreatingForm(true);
+    try {
+      const response = await authenticatedFetch('/api/forms/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          postId: currentPost.id,
+          contentGroupId: currentPost.content_group_id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to create form');
+
+      alert(`Form created: ${data.formName}`);
+      onUpdate();
+    } catch (err: any) {
+      console.error('[CreateForm] Error:', err);
+      alert(`Failed to create form: ${err.message}`);
+    } finally {
+      setCreatingForm(false);
     }
   };
 
@@ -951,6 +1008,72 @@ const ViewDetailsModal: React.FC<{
                     </div>
                   </div>
                 )}
+
+{/* ACTIONS SECTION */}
+                <div className="border-t border-gray-700 pt-4 mt-4 space-y-3">
+                  {/* Animate Image Button */}
+                  {currentPost.source_type === 'social_post' && currentPost.image_url && !currentPost.animated_version_id && (
+                    <button
+                      onClick={handleAnimateImage}
+                      disabled={animating}
+                      className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center justify-center"
+                    >
+                      {animating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Queued for animation...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4 mr-2" />
+                          Animate This Image
+                        </>
+                      )}
+                    </button>
+                  )}
+                  
+                  {/* Show animated version link if exists */}
+                  {currentPost.animated_version_id && (
+                    <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
+                      <p className="text-sm text-green-300">✓ Animated version available</p>
+                    </div>
+                  )}
+                  
+                  {/* Lead Form Section */}
+                  <div className="border-t border-gray-700 pt-3">
+                    <h4 className="text-xs font-semibold text-gray-400 mb-2">LEAD FORM</h4>
+                    {currentPost.form_id ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-white">
+                          <span className="text-gray-400">Form:</span> {currentPost.form_name}
+                        </p>
+                        <a 
+                          href={currentPost.form_url || '#'} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-[#5ccfa2] hover:text-[#45a881] flex items-center"
+                        >
+                          View Form →
+                        </a>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleCreateForm}
+                        disabled={creatingForm}
+                        className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg font-semibold transition-colors disabled:opacity-50"
+                      >
+                        {creatingForm ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 inline animate-spin" />
+                            Creating Form...
+                          </>
+                        ) : (
+                          'Create Lead Form'
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
 
               </div>
             </div>
