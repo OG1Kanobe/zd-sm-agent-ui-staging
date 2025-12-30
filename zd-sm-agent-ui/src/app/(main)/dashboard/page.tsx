@@ -910,12 +910,31 @@ const ViewDetailsModal: React.FC<{
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
+                {/*RENDER VIDEO IN VIDEO MODAL  LINES 913-925 - THIS SECTION BELOW: [{currentPost.source_type === 'video' ? (
+  <div className="relative">
+    <video 
+      src={currentPost.video_url || ''} 
+      poster={currentPost.video_thumbnail_url || ''}
+      controls
+      className="w-full aspect-square object-cover rounded-lg"
+    >
+      Your browser does not support video playback.
+    </video>
+  </div>
+) : (] ---- ITIS THE 12 LINES BELOW THIS COMMENT*/}
                 {currentPost.source_type === 'video' ? (
-                  <div className="relative">
-                    <img src={currentPost.video_thumbnail_url || 'https://placehold.co/400x400/10101d/5ccfa2?text=Video'} alt="Video thumbnail" className="w-full aspect-square object-cover rounded-lg" />
-                    <div className="absolute inset-0 flex items-center justify-center"><Play className="w-16 h-16 text-white/80" /></div>
-                  </div>
-                ) : (
+  <div className="relative">
+    <video 
+      src={currentPost.video_url || ''} 
+      poster={currentPost.video_thumbnail_url || ''}
+      controls
+      className="w-full aspect-square object-cover rounded-lg"
+    >
+      Your browser does not support video playback.
+    </video>
+  </div>
+) : ( 
+  
                   <img src={currentPost.image_url || 'https://placehold.co/400x400/10101d/5ccfa2?text=No+Image'} alt={PLATFORM_NAMES[currentPost.platform]} className="w-full aspect-square object-cover rounded-lg" />
                 )}
               </div>
