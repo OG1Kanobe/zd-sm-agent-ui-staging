@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
       'user.info.basic',
       'video.publish',
       'video.upload',
+      'video.list',
     ].join(',');
 
     // Build TikTok OAuth URL with PKCE

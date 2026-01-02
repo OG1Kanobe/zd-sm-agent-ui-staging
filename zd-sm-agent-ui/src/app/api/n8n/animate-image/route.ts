@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     // 4. FETCH SOURCE POST
     const { data: sourcePost, error: fetchError } = await supabase
       .from('posts_v2')
-      .select('id, user_id, content_group_id, caption, category, tags, platform, orientation, animated_version_id,animate_prompt')
+      .select('id, user_id, content_group_id, caption, topic,  category, tags, platform, orientation, animated_version_id,animate_prompt')
       .eq('id', sourcePostId)
       .single();
 
@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
       // Source content
       sourceImageUrl,
       caption: sourcePost.caption,
+      topic: sourcePost.topic,
       
       // Metadata (inherited from original)
       category: sourcePost.category,
