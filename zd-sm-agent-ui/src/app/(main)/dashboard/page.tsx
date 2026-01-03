@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Loader2, RefreshCw, BookOpen, Send, XCircle, Filter, Eye, Trash2, 
   MoreVertical, Play, X, Check, Image as ImageIcon, Video as VideoIcon,
-  Edit, Save, MessageSquare, Maximize2, ChevronUp, ChevronDown
+  Edit, Save, MessageSquare, Maximize2, ChevronUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -41,6 +41,8 @@ interface DashboardPost {
   ai_enhanced_prompt: string | null;
   feedback_rating: number | null;
   feedback_comment: string | null;
+  video_style: string | null;
+  video_purpose: string | null;
   ig_post_id: string | null;
   ig_post_link: string | null;
   fb_post_id: string | null;
@@ -105,6 +107,22 @@ const PLATFORM_NAMES: Record<Platform, string> = {
   none: 'None',
 };
 
+const VIDEO_STYLES = [
+  { value: 'realism', label: 'Realism' },
+  { value: 'anime', label: 'Anime' },
+  { value: 'comic', label: 'Comic Book' },
+  { value: '3d_animated', label: '3D Animated' },
+  { value: 'cinematic', label: 'Cinematic' },
+];
+
+const VIDEO_PURPOSES = [
+  { value: 'social_ad', label: 'Social Media Ad' },
+  { value: 'product_demo', label: 'Product Demo' },
+  { value: 'informative', label: 'Informative/Educational' },
+  { value: 'promo', label: 'Promotional Video' },
+  { value: 'tutorial', label: 'Tutorial/How-To' },
+];
+
 const getSevenDaysAgo = () => {
   const date = new Date();
   date.setDate(date.getDate() - 7);
@@ -133,16 +151,12 @@ const getPublishedPlatforms = (post: DashboardPost): Array<{ platform: Platform;
 const groupPostsByPrompt = (posts: DashboardPost[]): PromptGroup[] => {
   const groupMap = new Map<string, { posts: DashboardPost[]; date: string }>();
 
-  // Only include parent posts (not animated versions)
   posts.filter(p => !p.parent_post_id).forEach(post => {
     const key = post.content_group_id || post.id;
     const existing = groupMap.get(key);
     
     if (!existing) {
-      groupMap.set(key, { 
-        posts: [post], 
-        date: post.created_at 
-      });
+      groupMap.set(key, { posts: [post], date: post.created_at });
     } else {
       existing.posts.push(post);
     }
@@ -155,7 +169,6 @@ const groupPostsByPrompt = (posts: DashboardPost[]): PromptGroup[] => {
 
     groupPosts.forEach(post => {
       if (post.animated_version_id) {
-        // Find the animated version
         const animatedPost = posts.find(p => p.id === post.animated_version_id);
         cards.push({
           imagePost: post,
@@ -267,6 +280,122 @@ const FilterBar: React.FC<{ filters: FilterState; onFiltersChange: (filters: Fil
         </button>
       </div>
     </div>
+  );
+};
+
+// TAG INPUT COMPONENT
+const TagInput: React.FC<{
+  tags: string[];
+  onChange: (tags: string[]) => void;
+  maxTags?: number;
+}> = ({ tags, onChange, maxTags = 3 }) => {
+  const [inputValue, setInputValue] = useState('');
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && inputValue.trim()) {
+      e.preventDefault();
+      if (tags.length < maxTags && !tags.includes(inputValue.trim())) {
+        onChange([...tags, inputValue.trim()]);
+        setInputValue('');
+      }
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    onChange(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {tags.map((tag, idx) => (
+          <span key={idx} className="inline-flex items-center bg-[#5ccfa2] text-black text-xs px-3 py-1 rounded-full">
+            {tag}
+            <button onClick={() => removeTag(tag)} className="ml-2 hover:text-red-600">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <input
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder={tags.length < maxTags ? "Type and press Enter..." : `Max ${maxTags} tags`}
+        disabled={tags.length >= maxTags}
+        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2] disabled:opacity-50"
+      />
+      <p className="text-xs text-gray-500 mt-1">{tags.length}/{maxTags} tags</p>
+    </div>
+  );
+};
+
+// FEEDBACK MODAL
+const FeedbackModal: React.FC<{
+  postId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ postId, onClose, onSuccess }) => {
+  const [rating, setRating] = useState<number>(0);
+  const [comment, setComment] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (rating === 0) {
+      alert('Please select a rating');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('posts_v2')
+        .update({ feedback_rating: rating, feedback_comment: comment.trim() || null })
+        .eq('id', postId);
+
+      if (error) throw error;
+      alert('Thank you for your feedback!');
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      alert(`Failed: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6">
+        <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-lg rounded-xl shadow-2xl">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+            <h2 className="text-lg font-bold text-white">Send Feedback</h2>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-800"><X className="w-5 h-5 text-gray-400" /></button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-400 mb-2">Rating *</label>
+              <div className="flex space-x-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button key={star} onClick={() => setRating(star)} className={`text-3xl ${rating >= star ? 'text-yellow-400' : 'text-gray-600'}`}>★</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-400 mb-2">Comments (Optional)</label>
+              <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Share your thoughts..." rows={4} className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm resize-none" />
+            </div>
+          </div>
+          <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-800">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-800 text-white">Cancel</button>
+            <button onClick={handleSubmit} disabled={loading || rating === 0} className="px-6 py-2 rounded-lg bg-[#5ccfa2] text-black font-semibold disabled:opacity-50">
+              {loading ? 'Sending...' : 'Submit'}
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 };
 
@@ -432,12 +561,13 @@ const PublishBottomDrawer: React.FC<{
   );
 };
 
-// RIGHT DRAWER
+// RIGHT DRAWER (COMPLETE WITH ALL FEATURES)
 const RightDrawer: React.FC<{
   card: CardData;
   onClose: () => void;
   onUpdate: () => void;
 }> = ({ card, onClose, onUpdate }) => {
+  const { user } = useUserSession();
   const [width, setWidth] = useState(500);
   const [isResizing, setIsResizing] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
@@ -446,12 +576,23 @@ const RightDrawer: React.FC<{
   const [fullscreen, setFullscreen] = useState<{ type: 'image' | 'video'; src: string } | null>(null);
   
   const currentPost = showVideo && card.videoPost ? card.videoPost : card.imagePost;
+  
+  // Caption editing
   const [caption, setCaption] = useState(currentPost.caption || '');
   const [isEditingCaption, setIsEditingCaption] = useState(false);
+  
+  // Category and Tags
+  const [category, setCategory] = useState(currentPost.category || '');
+  const [tags, setTags] = useState<string[]>(currentPost.tags || []);
+  
   const [saving, setSaving] = useState(false);
+  const [animating, setAnimating] = useState(false);
+  const [creatingForm, setCreatingForm] = useState(false);
 
   useEffect(() => {
     setCaption(currentPost.caption || '');
+    setCategory(currentPost.category || '');
+    setTags(currentPost.tags || []);
     setIsEditingCaption(false);
   }, [showVideo, currentPost]);
 
@@ -489,6 +630,79 @@ const RightDrawer: React.FC<{
       alert(`Failed: ${error.message}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveCategory = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('posts_v2').update({ category: category || null }).eq('id', currentPost.id);
+      if (error) throw error;
+      onUpdate();
+      alert('Category saved!');
+    } catch (error: any) {
+      alert(`Failed: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveTags = async () => {
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('posts_v2').update({ tags: tags.length > 0 ? tags : null }).eq('id', currentPost.id);
+      if (error) throw error;
+      onUpdate();
+      alert('Tags saved!');
+    } catch (error: any) {
+      alert(`Failed: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAnimateImage = async () => {
+    setAnimating(true);
+    try {
+      const response = await authenticatedFetch('/api/n8n/animate-image', {
+        method: 'POST',
+        body: JSON.stringify({
+          sourcePostId: currentPost.id,
+          sourceImageUrl: currentPost.image_url,
+          duration: '5',
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      alert('Image queued for animation!');
+      onUpdate();
+    } catch (err: any) {
+      alert(`Failed: ${err.message}`);
+    } finally {
+      setAnimating(false);
+    }
+  };
+
+  const handleCreateForm = async () => {
+    setCreatingForm(true);
+    try {
+      const response = await authenticatedFetch('/api/forms/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+          postId: currentPost.id,
+          contentGroupId: currentPost.content_group_id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      alert(`Form created: ${data.formName}`);
+      onUpdate();
+    } catch (err: any) {
+      alert(`Failed: ${err.message}`);
+    } finally {
+      setCreatingForm(false);
     }
   };
 
@@ -564,21 +778,34 @@ const RightDrawer: React.FC<{
           </div>
           
           {/* Category */}
-          {currentPost.category && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-400 mb-1">Category</h3>
-              <p className="text-sm text-white">{currentPost.category}</p>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-400 mb-2">Category</h3>
+            <div className="flex space-x-2">
+              <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Enter category..." className="flex-1 bg-[#010112] border border-gray-700 text-white rounded-lg px-3 py-2 text-sm" />
+              <button onClick={handleSaveCategory} disabled={saving || category === currentPost.category} className="px-4 py-2 bg-[#5ccfa2] text-black rounded-lg font-semibold text-xs disabled:opacity-50">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+              </button>
             </div>
-          )}
+          </div>
           
           {/* Tags */}
-          {currentPost.tags && currentPost.tags.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-gray-400 mb-2">Tags (Max 3)</h3>
+            <TagInput tags={tags} onChange={setTags} maxTags={3} />
+            <button onClick={handleSaveTags} disabled={saving || JSON.stringify(tags) === JSON.stringify(currentPost.tags || [])} className="mt-2 w-full px-4 py-2 bg-[#5ccfa2] text-black rounded-lg font-semibold text-xs disabled:opacity-50">
+              {saving ? 'Saving...' : 'Save Tags'}
+            </button>
+          </div>
+          
+          {/* Video Info */}
+          {currentPost.source_type === 'video' && (
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 mb-2">Tags</h3>
-              <div className="flex flex-wrap gap-2">
-                {currentPost.tags.map((tag, idx) => (
-                  <span key={idx} className="bg-[#5ccfa2] text-black text-xs px-3 py-1 rounded-full">{tag}</span>
-                ))}
+              <h3 className="text-sm font-semibold text-gray-400 mb-2">Video Info</h3>
+              <div className="space-y-1 text-sm text-white">
+                <p>Orientation: {currentPost.orientation}</p>
+                <p>Duration: {currentPost.duration}s</p>
+                {currentPost.video_style && <p>Style: {VIDEO_STYLES.find(s => s.value === currentPost.video_style)?.label}</p>}
+                {currentPost.video_purpose && <p>Purpose: {VIDEO_PURPOSES.find(p => p.value === currentPost.video_purpose)?.label}</p>}
               </div>
             </div>
           )}
@@ -597,6 +824,50 @@ const RightDrawer: React.FC<{
               </div>
             </div>
           )}
+
+          {/* Admin Cost Breakdown */}
+          {user?.id === 'a1bb9dc6-09bf-4952-bbb2-4248a4e8f544' && currentPost.cost_breakdown && (
+            <div className="border-t border-gray-700 pt-4">
+              <h3 className="text-sm font-semibold text-gray-400 mb-2">Generation Cost (Admin)</h3>
+              <div className="text-xs text-gray-300 space-y-1">
+                {currentPost.ai_models_used && <p>Models: {JSON.stringify(currentPost.ai_models_used)}</p>}
+                <p className="font-semibold text-[#5ccfa2]">
+                  Total: ${typeof currentPost.cost_breakdown === 'object' ? currentPost.cost_breakdown.total : currentPost.cost_breakdown}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Actions Section */}
+          <div className="border-t border-gray-700 pt-4 space-y-3">
+            {/* Animate Image */}
+            {currentPost.source_type === 'social_post' && currentPost.image_url && !currentPost.animated_version_id && (
+              <button onClick={handleAnimateImage} disabled={animating} className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-semibold disabled:opacity-50">
+                {animating ? <><Loader2 className="w-4 h-4 inline mr-2 animate-spin" />Animating...</> : <><Play className="w-4 h-4 inline mr-2" />Animate Image</>}
+              </button>
+            )}
+            
+            {currentPost.animated_version_id && (
+              <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
+                <p className="text-sm text-green-300">✓ Animated version available</p>
+              </div>
+            )}
+            
+            {/* Lead Form */}
+            <div className="border-t border-gray-700 pt-3">
+              <h4 className="text-xs font-semibold text-gray-400 mb-2">LEAD FORM</h4>
+              {currentPost.form_id ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-white">Form: {currentPost.form_name}</p>
+                  <a href={currentPost.form_url || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-[#5ccfa2] hover:text-[#45a881]">View Form →</a>
+                </div>
+              ) : (
+                <button onClick={handleCreateForm} disabled={creatingForm} className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg font-semibold disabled:opacity-50">
+                  {creatingForm ? 'Creating...' : 'Create Lead Form'}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
         
         {/* Publish Button */}
@@ -628,7 +899,8 @@ const Card: React.FC<{
   onView: (card: CardData) => void;
   onPublish: (post: DashboardPost) => void;
   onDelete: (postId: string) => void;
-}> = ({ card, onView, onPublish, onDelete }) => {
+  onFeedback: (postId: string) => void;
+}> = ({ card, onView, onPublish, onDelete, onFeedback }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const currentPost = showVideo && card.videoPost ? card.videoPost : card.imagePost;
@@ -673,8 +945,11 @@ const Card: React.FC<{
               <MoreVertical className="w-4 h-4" />
             </button>
             {showMenu && (
-              <div className="absolute right-0 bottom-full mb-2 w-32 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
-                <button onClick={() => { onDelete(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 text-sm rounded-lg flex items-center">
+              <div className="absolute right-0 bottom-full mb-2 w-40 bg-[#10101d] border border-gray-700 rounded-lg shadow-lg z-20">
+                <button onClick={() => { onFeedback(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-800 text-sm rounded-t-lg flex items-center">
+                  <MessageSquare className="w-4 h-4 mr-2" />Feedback
+                </button>
+                <button onClick={() => { onDelete(currentPost.id); setShowMenu(false); }} className="w-full px-4 py-2 text-left text-red-400 hover:bg-gray-800 text-sm rounded-b-lg flex items-center">
                   <Trash2 className="w-4 h-4 mr-2" />Delete
                 </button>
               </div>
@@ -704,7 +979,8 @@ const PromptGroupSection: React.FC<{
   onViewCard: (card: CardData) => void;
   onPublish: (post: DashboardPost) => void;
   onDelete: (postId: string) => void;
-}> = ({ group, onViewCard, onPublish, onDelete }) => (
+  onFeedback: (postId: string) => void;
+}> = ({ group, onViewCard, onPublish, onDelete, onFeedback }) => (
   <div className="space-y-4">
     <div className="flex items-center justify-between">
       <h3 className="text-white font-semibold">User Prompt: {group.prompt}</h3>
@@ -712,7 +988,7 @@ const PromptGroupSection: React.FC<{
     </div>
     <div className="flex flex-wrap gap-6">
       {group.cards.map((card, idx) => (
-        <Card key={idx} card={card} onView={onViewCard} onPublish={onPublish} onDelete={onDelete} />
+        <Card key={idx} card={card} onView={onViewCard} onPublish={onPublish} onDelete={onDelete} onFeedback={onFeedback} />
       ))}
     </div>
   </div>
@@ -737,6 +1013,7 @@ const DashboardPage = () => {
   const [promptGroups, setPromptGroups] = useState<PromptGroup[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
   const [publishPost, setPublishPost] = useState<DashboardPost | null>(null);
+  const [feedbackPostId, setFeedbackPostId] = useState<string | null>(null);
 
   useEffect(() => {
     setPromptGroups(groupPostsByPrompt(posts));
@@ -796,7 +1073,7 @@ const DashboardPage = () => {
         ) : (
           <div className="space-y-8">
             {promptGroups.map((group, idx) => (
-              <PromptGroupSection key={idx} group={group} onViewCard={setSelectedCard} onPublish={setPublishPost} onDelete={handleDelete} />
+              <PromptGroupSection key={idx} group={group} onViewCard={setSelectedCard} onPublish={setPublishPost} onDelete={handleDelete} onFeedback={setFeedbackPostId} />
             ))}
           </div>
         )}
@@ -811,6 +1088,12 @@ const DashboardPage = () => {
       <AnimatePresence>
         {publishPost && (
           <PublishBottomDrawer post={publishPost} onClose={() => setPublishPost(null)} onSuccess={refetch} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {feedbackPostId && (
+          <FeedbackModal postId={feedbackPostId} onClose={() => setFeedbackPostId(null)} onSuccess={refetch} />
         )}
       </AnimatePresence>
     </div>
