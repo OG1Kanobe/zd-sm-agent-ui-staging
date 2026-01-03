@@ -264,19 +264,78 @@ const SimpleStatCards: React.FC<{ stats: DashboardStats | null }> = ({ stats }) 
 
 const FilterBar: React.FC<{ filters: FilterState; onFiltersChange: (filters: FilterState) => void; }> = ({ filters, onFiltersChange }) => {
   const [tempFilters, setTempFilters] = useState(filters);
+  
   return (
-    <div className="bg-[#10101d] p-4 rounded-xl border border-gray-800">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <input type="date" value={tempFilters.fromDate} onChange={(e) => setTempFilters({ ...tempFilters, fromDate: e.target.value })} className="bg-[#010112] border border-gray-700 text-white rounded-lg p-2 text-sm" style={{ colorScheme: 'dark' }} />
-        <input type="date" value={tempFilters.toDate} onChange={(e) => setTempFilters({ ...tempFilters, toDate: e.target.value })} className="bg-[#010112] border border-gray-700 text-white rounded-lg p-2 text-sm" style={{ colorScheme: 'dark' }} />
-        <select value={tempFilters.sourceType} onChange={(e) => setTempFilters({ ...tempFilters, sourceType: e.target.value as any })} className="bg-[#010112] border border-gray-700 text-white rounded-lg p-2 text-sm">
-          <option value="all">All Types</option><option value="social_post">Social Posts</option><option value="video">Videos</option>
+    <div className="bg-[#10101d] p-6 rounded-2xl border border-gray-800 shadow-lg">
+      <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-4">FILTERS</h3>
+      
+      <div className="flex items-center gap-3">
+        {/* Date Range Capsule */}
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 flex items-center gap-4 shadow-md h-[60px]">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">FROM</span>
+            <input 
+              type="date" 
+              value={tempFilters.fromDate} 
+              onChange={(e) => setTempFilters({ ...tempFilters, fromDate: e.target.value })} 
+              className="bg-transparent text-white text-sm font-semibold border-none outline-none cursor-pointer" 
+              style={{ colorScheme: 'dark' }} 
+            />
+          </div>
+          
+          <div className="w-px h-8 bg-gray-700"></div>
+          
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">TO</span>
+            <input 
+              type="date" 
+              value={tempFilters.toDate} 
+              onChange={(e) => setTempFilters({ ...tempFilters, toDate: e.target.value })} 
+              className="bg-transparent text-white text-sm font-semibold border-none outline-none cursor-pointer" 
+              style={{ colorScheme: 'dark' }} 
+            />
+          </div>
+        </div>
+        
+        {/* Content Type Dropdown */}
+        <select 
+          value={tempFilters.sourceType} 
+          onChange={(e) => setTempFilters({ ...tempFilters, sourceType: e.target.value as any })} 
+          className="bg-white/5 backdrop-blur-sm border border-gray-700 text-white rounded-2xl px-4 h-[60px] text-sm font-semibold shadow-md hover:border-[#5ccfa2] transition-colors cursor-pointer appearance-none bg-no-repeat bg-right pr-10"
+          style={{ 
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+            backgroundSize: '20px',
+            backgroundPosition: 'right 12px center'
+          }}
+        >
+          <option value="all">All Types</option>
+          <option value="social_post">Images</option>
+          <option value="video">Videos</option>
         </select>
-        <select value={tempFilters.status} onChange={(e) => setTempFilters({ ...tempFilters, status: e.target.value as any })} className="bg-[#010112] border border-gray-700 text-white rounded-lg p-2 text-sm">
-          <option value="all">All Status</option><option value="Draft">Draft</option><option value="Published">Published</option>
+        
+        {/* Status Dropdown */}
+        <select 
+          value={tempFilters.status} 
+          onChange={(e) => setTempFilters({ ...tempFilters, status: e.target.value as any })} 
+          className="bg-white/5 backdrop-blur-sm border border-gray-700 text-white rounded-2xl px-4 h-[60px] text-sm font-semibold shadow-md hover:border-[#5ccfa2] transition-colors cursor-pointer appearance-none bg-no-repeat bg-right pr-10"
+          style={{ 
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+            backgroundSize: '20px',
+            backgroundPosition: 'right 12px center'
+          }}
+        >
+          <option value="all">All Status</option>
+          <option value="Draft">Drafts</option>
+          <option value="Published">Published</option>
         </select>
-        <button onClick={() => onFiltersChange(tempFilters)} className="bg-[#5ccfa2] text-black font-semibold py-2 rounded-lg hover:bg-[#45a881] flex items-center justify-center text-sm">
-          <Filter className="w-4 h-4 mr-1" />Apply
+        
+        {/* Apply Button */}
+        <button 
+          onClick={() => onFiltersChange(tempFilters)} 
+          className="bg-[#5ccfa2] hover:bg-[#45a881] text-black font-bold py-2 px-6 rounded-2xl h-[60px] transition-colors shadow-md flex items-center gap-2 text-sm uppercase tracking-wide"
+        >
+          <Filter className="w-4 h-4" />
+          Apply
         </button>
       </div>
     </div>
@@ -568,7 +627,7 @@ const RightDrawer: React.FC<{
   onUpdate: () => void;
 }> = ({ card, onClose, onUpdate }) => {
   const { user } = useUserSession();
-  const [width, setWidth] = useState(500);
+  const [width, setWidth] = useState(Math.max(500, window.innerWidth * 0.33));
   const [isResizing, setIsResizing] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [showPrompts, setShowPrompts] = useState(false);
@@ -602,7 +661,7 @@ const RightDrawer: React.FC<{
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
       const newWidth = window.innerWidth - e.clientX;
-      setWidth(Math.max(400, Math.min(newWidth, window.innerWidth * 0.8)));
+setWidth(Math.max(500, Math.min(newWidth, window.innerWidth * 0.8)));
     };
 
     const handleMouseUp = () => setIsResizing(false);
@@ -725,28 +784,45 @@ const RightDrawer: React.FC<{
         <div className="p-6 space-y-4">
           {/* Toggle */}
           {card.hasToggle && card.videoPost && (
-            <div className="flex border border-gray-700 rounded-lg overflow-hidden">
-              <button onClick={() => setShowVideo(false)} className={`flex-1 py-2 px-4 text-sm font-semibold transition-colors ${!showVideo ? 'bg-[#5ccfa2] text-black' : 'bg-transparent text-gray-400'}`}>
-                <ImageIcon className="w-4 h-4 inline mr-1" />Image
-              </button>
-              <button onClick={() => setShowVideo(true)} className={`flex-1 py-2 px-4 text-sm font-semibold transition-colors ${showVideo ? 'bg-[#5ccfa2] text-black' : 'bg-transparent text-gray-400'}`}>
-                <VideoIcon className="w-4 h-4 inline mr-1" />Video
-              </button>
-            </div>
-          )}
+  <div className="flex justify-center">
+    <div className="relative inline-flex bg-white/5 backdrop-blur-sm rounded-full p-1 shadow-lg">
+      <motion.div
+        className="absolute top-1 bottom-1 bg-[#5ccfa2] rounded-full shadow-md"
+        initial={false}
+        animate={{
+          left: showVideo ? '50%' : '4px',
+          right: showVideo ? '4px' : '50%'
+        }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      />
+      <button
+        onClick={() => setShowVideo(false)}
+        className={`relative z-10 px-8 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${!showVideo ? 'text-black' : 'text-white/60'}`}
+      >
+        Image
+      </button>
+      <button
+        onClick={() => setShowVideo(true)}
+        className={`relative z-10 px-8 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${showVideo ? 'text-black' : 'text-white/60'}`}
+      >
+        Video
+      </button>
+    </div>
+  </div>
+)}
           
           {/* Preview */}
           <div className="relative">
             {currentPost.source_type === 'video' ? (
-              <div className="relative">
-                <video src={currentPost.video_url || ''} poster={currentPost.video_thumbnail_url || ''} controls className="w-full rounded-lg" />
+  <div className="relative">
+    <video src={currentPost.video_url || ''} poster={currentPost.video_thumbnail_url || ''} controls className="w-full max-h-[600px] object-contain rounded-lg" />
                 <button onClick={() => setFullscreen({ type: 'video', src: currentPost.video_url || '' })} className="absolute top-2 right-2 p-2 bg-black/50 rounded-full hover:bg-black/70">
                   <Maximize2 className="w-4 h-4 text-white" />
                 </button>
               </div>
             ) : (
               <div className="relative">
-                <img src={currentPost.image_url || ''} alt="Preview" className="w-full rounded-lg" />
+                <img src={currentPost.image_url || ''} alt="Preview" className="w-full max-h-[600px] object-contain rounded-lg" />
                 <button onClick={() => setFullscreen({ type: 'image', src: currentPost.image_url || '' })} className="absolute top-2 right-2 p-2 bg-black/50 rounded-full hover:bg-black/70">
                   <Maximize2 className="w-4 h-4 text-white" />
                 </button>
@@ -911,12 +987,41 @@ const Card: React.FC<{
     <div className="bg-[#10101d] rounded-xl border border-gray-800 overflow-hidden" style={{ width: '350px' }}>
       {/* Toggle */}
       {card.hasToggle && card.videoPost && (
-        <div className="flex border-b border-gray-700">
-          <button onClick={() => setShowVideo(false)} className={`flex-1 py-2 text-xs font-semibold ${!showVideo ? 'bg-[#5ccfa2] text-black' : 'text-gray-400'}`}>Image</button>
-          <button onClick={() => setShowVideo(true)} className={`flex-1 py-2 text-xs font-semibold ${showVideo ? 'bg-[#5ccfa2] text-black' : 'text-gray-400'}`}>Video</button>
-        </div>
-      )}
-      
+  <div className="p-3 flex justify-center">
+    <div className="relative inline-flex bg-white/5 backdrop-blur-sm rounded-full p-1 shadow-lg">
+      <motion.div
+        className="absolute top-1 bottom-1 bg-[#5ccfa2] rounded-full shadow-md"
+        initial={false}
+        animate={{
+          left: showVideo ? '50%' : '4px',
+          right: showVideo ? '4px' : '50%'
+        }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      />
+      <button
+        onClick={() => setShowVideo(false)}
+        className={`relative z-10 px-6 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${!showVideo ? 'text-black' : 'text-white/60'}`}
+      >
+        Image
+      </button>
+      <button
+        onClick={() => setShowVideo(true)}
+        className={`relative z-10 px-6 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${showVideo ? 'text-black' : 'text-white/60'}`}
+      >
+        Video
+      </button>
+    </div>
+  </div>
+)}
+
+{/* add image tag to standalone cards */}
+{!card.hasToggle && (
+  <div className="absolute top-3 right-3 bg-orange-600 text-white text-xs px-3 py-1 rounded-full font-semibold">
+    Image
+  </div>
+)}
+{/* add image tag to standalone cards */}
+
       {/* Preview */}
       <div className="relative aspect-square">
         <img src={mediaUrl || ''} alt="Preview" className="w-full h-full object-cover" />
@@ -982,10 +1087,10 @@ const PromptGroupSection: React.FC<{
   onFeedback: (postId: string) => void;
 }> = ({ group, onViewCard, onPublish, onDelete, onFeedback }) => (
   <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <h3 className="text-white font-semibold">User Prompt: {group.prompt}</h3>
-      <span className="text-sm text-gray-400">Date: {formatDate(group.date)}</span>
-    </div>
+    <div className="flex items-center gap-4">
+  <h3 className="text-white font-semibold flex-[3]">User Prompt: {group.prompt}</h3>
+  <span className="text-sm text-gray-400 flex-1 text-right whitespace-nowrap">Date: {formatDate(group.date)}</span>
+</div>
     <div className="flex flex-wrap gap-6">
       {group.cards.map((card, idx) => (
         <Card key={idx} card={card} onView={onViewCard} onPublish={onPublish} onDelete={onDelete} onFeedback={onFeedback} />
