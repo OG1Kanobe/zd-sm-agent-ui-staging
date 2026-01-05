@@ -269,29 +269,29 @@ const FilterBar: React.FC<{ filters: FilterState; onFiltersChange: (filters: Fil
     <div className="bg-[#10101d] p-6 rounded-2xl border border-gray-800 shadow-lg">
       <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-4">FILTERS</h3>
       
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 w-full">
         {/* Date Range Capsule */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 flex items-center gap-4 shadow-md h-[60px]">
-          <div className="flex flex-col">
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-4 flex items-center gap-4 shadow-md h-[60px] flex-[2]">
+          <div className="flex flex-col flex-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">FROM</span>
             <input 
               type="date" 
               value={tempFilters.fromDate} 
               onChange={(e) => setTempFilters({ ...tempFilters, fromDate: e.target.value })} 
-              className="bg-transparent text-white text-sm font-semibold border-none outline-none cursor-pointer" 
+              className="bg-transparent text-white text-sm font-semibold border-none outline-none cursor-pointer w-full" 
               style={{ colorScheme: 'dark' }} 
             />
           </div>
           
           <div className="w-px h-8 bg-gray-700"></div>
           
-          <div className="flex flex-col">
+          <div className="flex flex-col flex-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">TO</span>
             <input 
               type="date" 
               value={tempFilters.toDate} 
               onChange={(e) => setTempFilters({ ...tempFilters, toDate: e.target.value })} 
-              className="bg-transparent text-white text-sm font-semibold border-none outline-none cursor-pointer" 
+              className="bg-transparent text-white text-sm font-semibold border-none outline-none cursor-pointer w-full" 
               style={{ colorScheme: 'dark' }} 
             />
           </div>
@@ -301,38 +301,38 @@ const FilterBar: React.FC<{ filters: FilterState; onFiltersChange: (filters: Fil
         <select 
           value={tempFilters.sourceType} 
           onChange={(e) => setTempFilters({ ...tempFilters, sourceType: e.target.value as any })} 
-          className="bg-white/5 backdrop-blur-sm border border-gray-700 text-white rounded-2xl px-4 h-[60px] text-sm font-semibold shadow-md hover:border-[#5ccfa2] transition-colors cursor-pointer appearance-none bg-no-repeat bg-right pr-10"
+          className="bg-white/5 backdrop-blur-sm border border-gray-700 text-white rounded-2xl px-4 h-[60px] text-sm font-semibold shadow-md hover:border-[#5ccfa2] transition-colors cursor-pointer appearance-none bg-no-repeat bg-right pr-10 flex-1"
           style={{ 
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
             backgroundSize: '20px',
             backgroundPosition: 'right 12px center'
           }}
         >
-          <option value="all">All Types</option>
-          <option value="social_post">Images</option>
-          <option value="video">Videos</option>
+          <option value="all" className="bg-[#0b0b10] text-white">All Types</option>
+          <option value="social_post" className="bg-[#0b0b10] text-white">Images</option>
+          <option value="video" className="bg-[#0b0b10] text-white">Videos</option>
         </select>
         
         {/* Status Dropdown */}
         <select 
           value={tempFilters.status} 
           onChange={(e) => setTempFilters({ ...tempFilters, status: e.target.value as any })} 
-          className="bg-white/5 backdrop-blur-sm border border-gray-700 text-white rounded-2xl px-4 h-[60px] text-sm font-semibold shadow-md hover:border-[#5ccfa2] transition-colors cursor-pointer appearance-none bg-no-repeat bg-right pr-10"
+          className="bg-white/5 backdrop-blur-sm border border-gray-700 text-white rounded-2xl px-4 h-[60px] text-sm font-semibold shadow-md hover:border-[#5ccfa2] transition-colors cursor-pointer appearance-none bg-no-repeat bg-right pr-10 flex-1"
           style={{ 
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
             backgroundSize: '20px',
             backgroundPosition: 'right 12px center'
           }}
         >
-          <option value="all">All Status</option>
-          <option value="Draft">Drafts</option>
-          <option value="Published">Published</option>
+          <option value="all" className="bg-[#0b0b10] text-white">All Status</option>
+          <option value="Draft" className="bg-[#0b0b10] text-white">Drafts</option>
+          <option value="Published" className="bg-[#0b0b10] text-white">Published</option>
         </select>
         
         {/* Apply Button */}
         <button 
           onClick={() => onFiltersChange(tempFilters)} 
-          className="bg-[#5ccfa2] hover:bg-[#45a881] text-black font-bold py-2 px-6 rounded-2xl h-[60px] transition-colors shadow-md flex items-center gap-2 text-sm uppercase tracking-wide"
+          className="bg-[#5ccfa2] hover:bg-[#45a881] text-black font-bold py-2 px-6 rounded-2xl h-[60px] transition-colors shadow-md flex items-center gap-2 text-sm uppercase tracking-wide cursor-pointer whitespace-nowrap"
         >
           <Filter className="w-4 h-4" />
           Apply
@@ -784,26 +784,26 @@ setWidth(Math.max(500, Math.min(newWidth, window.innerWidth * 0.8)));
         <div className="p-6 space-y-4">
           {/* Toggle */}
           {card.hasToggle && card.videoPost && (
-  <div className="flex justify-center">
-    <div className="relative inline-flex bg-white/5 backdrop-blur-sm rounded-full p-1 shadow-lg">
+  <div className="px-4 pt-3">
+    <div className="relative flex bg-white/5 backdrop-blur-sm rounded-xl p-1 shadow-lg">
       <motion.div
-        className="absolute top-1 bottom-1 bg-[#5ccfa2] rounded-full shadow-md"
+        className="absolute top-1 bottom-1 bg-[#5ccfa2] rounded-lg shadow-md"
         initial={false}
         animate={{
           left: showVideo ? '50%' : '4px',
           right: showVideo ? '4px' : '50%'
         }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        transition={{ ease: [0.4, 0, 0.2, 1], duration: 0.3 }}
       />
       <button
         onClick={() => setShowVideo(false)}
-        className={`relative z-10 px-8 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${!showVideo ? 'text-black' : 'text-white/60'}`}
+        className={`relative z-10 flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${!showVideo ? 'text-black' : 'text-white/60'}`}
       >
         Image
       </button>
       <button
         onClick={() => setShowVideo(true)}
-        className={`relative z-10 px-8 py-2 text-[10px] font-bold uppercase tracking-wider transition-colors ${showVideo ? 'text-black' : 'text-white/60'}`}
+        className={`relative z-10 flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${showVideo ? 'text-black' : 'text-white/60'}`}
       >
         Video
       </button>
@@ -987,32 +987,33 @@ const Card: React.FC<{
     <div className="bg-[#10101d] rounded-xl border border-gray-800 overflow-hidden" style={{ width: '350px' }}>
       {/* Toggle */}
       {card.hasToggle && card.videoPost && (
-  <div className="p-3 flex justify-center">
-    <div className="relative inline-flex bg-white/5 backdrop-blur-sm rounded-full p-1 shadow-lg">
+  <div className="px-4 pt-3">
+    <div className="relative flex bg-white/5 backdrop-blur-sm rounded-xl p-1 shadow-lg">
       <motion.div
-        className="absolute top-1 bottom-1 bg-[#5ccfa2] rounded-full shadow-md"
+        className="absolute top-1 bottom-1 bg-[#5ccfa2] rounded-lg shadow-md"
         initial={false}
         animate={{
           left: showVideo ? '50%' : '4px',
           right: showVideo ? '4px' : '50%'
         }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        transition={{ ease: [0.4, 0, 0.2, 1], duration: 0.3 }}
       />
       <button
         onClick={() => setShowVideo(false)}
-        className={`relative z-10 px-6 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${!showVideo ? 'text-black' : 'text-white/60'}`}
+        className={`relative z-10 flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${!showVideo ? 'text-black' : 'text-white/60'}`}
       >
         Image
       </button>
       <button
         onClick={() => setShowVideo(true)}
-        className={`relative z-10 px-6 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${showVideo ? 'text-black' : 'text-white/60'}`}
+        className={`relative z-10 flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${showVideo ? 'text-black' : 'text-white/60'}`}
       >
         Video
       </button>
     </div>
   </div>
 )}
+    
 
 {/* add image tag to standalone cards */}
 {!card.hasToggle && (
