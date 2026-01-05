@@ -96,7 +96,7 @@ export default function MainLayout({
               <div>
                 <div className="mb-8 w-full">
   {/* Logo Image */}
-  <div className="w-full h-16 mb-3 bg-gray-800 rounded-lg flex items-center justify-center">
+  <div className="w-full h-relative mb-3 bg-none rounded-lg flex items-center justify-center">
     <img 
       src="https://edgkxonczgbvngdwpqei.supabase.co/storage/v1/object/public/logos/ZD/Content%20Studio%20-%20Logo%20v1.png" 
       alt="Content Factory Logo" 
@@ -105,8 +105,8 @@ export default function MainLayout({
   </div>
   
   {/* App Name */}
-  <h1 className="text-xl font-bold text-[#5ccfa2] w-full">
-    Content Factory
+  <h1 className="text-2xl font-mono font-bold text-[#5ccfa2] w-full">
+    The Content Factory
   </h1>
   
   {/* Tagline */}
