@@ -100,12 +100,12 @@ export default function MainLayout({
     <img 
       src="https://edgkxonczgbvngdwpqei.supabase.co/storage/v1/object/public/logos/ZD/Content%20Studio%20-%20Logo%20v1.png" 
       alt="Content Factory Logo" 
-      className="h-12 w-auto object-contain"
+      className="w-full h-auto object-contain rounded-lg"
     />
   </div>
   
   {/* App Name */}
-  <h1 className="text-2xl font-mono font-bold text-[#5ccfa2] w-full">
+  <h1 className="text-xl font-mono font-bold text-[#5ccfa2] w-full">
     The Content Factory
   </h1>
   
