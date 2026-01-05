@@ -98,7 +98,7 @@ export default function MainLayout({
   {/* Logo Image */}
   <div className="w-full h-relative mb-3 bg-none rounded-lg flex items-center justify-center">
     <img 
-      src="https://edgkxonczgbvngdwpqei.supabase.co/storage/v1/object/public/logos/ZD/Content%20Studio%20-%20Logo%20v1.png" 
+      src="https://edgkxonczgbvngdwpqei.supabase.co/storage/v1/object/public/logos/ZD/Content-Studio%20Logo%20-%20v2.png" 
       alt="Content Factory Logo" 
       className="w-full h-auto object-contain rounded-lg"
     />
