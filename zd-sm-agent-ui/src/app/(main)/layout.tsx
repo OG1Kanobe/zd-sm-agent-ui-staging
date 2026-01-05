@@ -94,9 +94,12 @@ export default function MainLayout({
           <div className="min-h-screen bg-[#010112] text-white flex">
             <aside className="w-64 bg-[#10101d] p-4 flex flex-col justify-between border-r border-gray-800 fixed h-full z-20">
               <div>
-                <h1 className="text-2xl font-mono text-[#5ccfa2] mb-8 flex items-center">
-                  <Zap className="w-6 h-6 mr-2" /> ARCHITECT C
-                </h1>
+                <div className="mb-8">
+  <h1 className="text-2xl font-mono text-[#5ccfa2] flex items-center">
+    <Zap className="w-6 h-6 mr-2" /> The Content Factory
+  </h1>
+  <p className="text-xs text-white ml-8 mt-1">by Zenith Digital</p>
+</div>
                 <nav className="space-y-2">
                   <a
                     href="/dashboard"
