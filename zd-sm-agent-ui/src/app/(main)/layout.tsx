@@ -94,11 +94,25 @@ export default function MainLayout({
           <div className="min-h-screen bg-[#010112] text-white flex">
             <aside className="w-64 bg-[#10101d] p-4 flex flex-col justify-between border-r border-gray-800 fixed h-full z-20">
               <div>
-                <div className="mb-8">
-  <h1 className="text-2xl font-mono text-[#5ccfa2] flex items-center">
-    <Zap className="w-6 h-6 mr-2" /> The Content Factory
+                <div className="mb-8 w-full">
+  {/* Logo Image */}
+  <div className="w-full h-16 mb-3 bg-gray-800 rounded-lg flex items-center justify-center">
+    <img 
+      src="https://edgkxonczgbvngdwpqei.supabase.co/storage/v1/object/public/logos/ZD/Content%20Studio%20-%20Logo%20v1.png" 
+      alt="Content Factory Logo" 
+      className="h-12 w-auto object-contain"
+    />
+  </div>
+  
+  {/* App Name */}
+  <h1 className="text-xl font-bold text-[#5ccfa2] w-full">
+    Content Factory
   </h1>
-  <p className="text-xs text-white ml-8 mt-1">by Zenith Digital</p>
+  
+  {/* Tagline */}
+  <p className="text-xs text-white w-full mt-1">
+    by Zenith Digital
+  </p>
 </div>
                 <nav className="space-y-2">
                   <a
