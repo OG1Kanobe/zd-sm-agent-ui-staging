@@ -12,22 +12,25 @@ const SessionMonitor = () => {
   const { user } = useUserSession();
   
   const [showWarning, setShowWarning] = useState(false);
-  const [countdown, setCountdown] = useState(5); // 5 minute warning
+  const [countdown, setCountdown] = useState(15); // Countdown in seconds
   
   const lastActivityRef = useRef<number>(Date.now());
   const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
   const logoutTimerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  // Configuration
-  const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 1 hour in milliseconds
-  const WARNING_BEFORE_LOGOUT = 5 * 60 * 1000; // 5 minutes warning
+  // ============================================
+  // CONFIGURATION - TESTING MODE
+  // ============================================
+  // CURRENT: Testing mode (fast timeouts)
+  const WARNING_TIME = 30 * 1000; // 30 seconds (PRODUCTION: 45 * 60 * 1000 for 45 mins)
+  const LOGOUT_TIME = 45 * 1000; // 45 seconds (PRODUCTION: 60 * 60 * 1000 for 60 mins)
+  const WARNING_DURATION = LOGOUT_TIME - WARNING_TIME; // 15 seconds warning (PRODUCTION: 15 mins)
+  // ============================================
 
   // Play notification sound
   const playNotificationSound = useCallback(() => {
     try {
-      // Create a simple beep sound using Web Audio API
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
@@ -35,7 +38,7 @@ const SessionMonitor = () => {
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       
-      oscillator.frequency.value = 800; // Frequency in Hz
+      oscillator.frequency.value = 800;
       oscillator.type = 'sine';
       
       gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
@@ -55,64 +58,100 @@ const SessionMonitor = () => {
     console.log('🚪 Auto-logging out user due to inactivity');
     
     // Clear all timers
-    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-    if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+      warningTimerRef.current = null;
+    }
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+      logoutTimerRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
     
-    // Sign out
-    await supabase.auth.signOut();
+    // Hide warning
+    setShowWarning(false);
     
-    // Redirect to login
-    router.push('/login?reason=inactivity');
-  }, [router]);
+    // Sign out from Supabase
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Logout error:', error);
+    }
+    
+    // Force redirect to login
+    window.location.href = '/login?reason=inactivity';
+  }, []);
 
   // Reset activity timer
   const resetActivityTimer = useCallback(() => {
-    lastActivityRef.current = Date.now();
+    const now = Date.now();
+    lastActivityRef.current = now;
+    
+    console.log('🔄 Activity detected - resetting timers');
     
     // Clear existing timers
-    if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
-    if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+      warningTimerRef.current = null;
+    }
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+      logoutTimerRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
     
     // Hide warning if showing
     if (showWarning) {
       setShowWarning(false);
-      console.log('✅ Activity detected - warning dismissed');
+      console.log('✅ Warning dismissed');
     }
     
-    // Set warning timer (55 minutes from now)
+    // Set warning timer
     warningTimerRef.current = setTimeout(() => {
       console.log('⚠️ Showing inactivity warning');
       setShowWarning(true);
-      setCountdown(5); // Reset countdown to 5 minutes
+      
+      // Calculate countdown in seconds
+      const warningSeconds = Math.floor(WARNING_DURATION / 1000);
+      setCountdown(warningSeconds);
       playNotificationSound();
       
-      // Start countdown
-      let remainingMinutes = 5;
+      // Start countdown (update every second)
+      let remainingSeconds = warningSeconds;
       countdownIntervalRef.current = setInterval(() => {
-        remainingMinutes -= 1;
-        setCountdown(remainingMinutes);
+        remainingSeconds -= 1;
+        setCountdown(remainingSeconds);
         
-        if (remainingMinutes <= 0 && countdownIntervalRef.current) {
-          clearInterval(countdownIntervalRef.current);
+        console.log(`⏱️ Countdown: ${remainingSeconds} seconds remaining`);
+        
+        if (remainingSeconds <= 0) {
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+          }
         }
-      }, 60000); // Update every minute
+      }, 1000); // Update every second
       
-      // Set final logout timer (5 minutes from warning)
+      // Set final logout timer
       logoutTimerRef.current = setTimeout(() => {
+        console.log('⏰ Logout timer triggered!');
         handleLogout();
-      }, WARNING_BEFORE_LOGOUT);
+      }, WARNING_DURATION);
       
-    }, INACTIVITY_TIMEOUT - WARNING_BEFORE_LOGOUT);
+    }, WARNING_TIME);
     
-  }, [showWarning, handleLogout, playNotificationSound, INACTIVITY_TIMEOUT, WARNING_BEFORE_LOGOUT]);
+  }, [showWarning, handleLogout, playNotificationSound, WARNING_TIME, WARNING_DURATION]);
 
   // Activity event listeners
   useEffect(() => {
-    if (!user) return; // Only monitor if user is logged in
+    if (!user) return;
     
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'];
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
     
     const handleActivity = () => {
       resetActivityTimer();
@@ -120,16 +159,19 @@ const SessionMonitor = () => {
     
     // Add event listeners
     events.forEach(event => {
-      window.addEventListener(event, handleActivity);
+      window.addEventListener(event, handleActivity, { passive: true });
     });
     
     // Initialize timer on mount
     resetActivityTimer();
     
-    console.log('👀 Session monitor initialized - 1 hour inactivity timeout');
+    console.log(`👀 Session monitor initialized
+    ⏰ Warning after: ${WARNING_TIME / 1000}s
+    🚪 Logout after: ${LOGOUT_TIME / 1000}s`);
     
     // Cleanup
     return () => {
+      console.log('🧹 Cleaning up session monitor');
       events.forEach(event => {
         window.removeEventListener(event, handleActivity);
       });
@@ -138,16 +180,15 @@ const SessionMonitor = () => {
       if (logoutTimerRef.current) clearTimeout(logoutTimerRef.current);
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
-  }, [user, resetActivityTimer]);
+  }, [user, resetActivityTimer, WARNING_TIME, LOGOUT_TIME]);
 
   // Handle "Stay Logged In" button
   const handleStayLoggedIn = () => {
     console.log('✅ User chose to stay logged in');
-    playNotificationSound(); // Acknowledge action
+    playNotificationSound();
     resetActivityTimer();
   };
 
-  // Don't render anything if user is not logged in
   if (!user) return null;
 
   return (
@@ -177,7 +218,7 @@ const SessionMonitor = () => {
             </h2>
 
             <p className="text-gray-300 text-center mb-6">
-              You've been inactive for a while. You'll be automatically logged out in:
+              You've been inactive. You'll be automatically logged out in:
             </p>
 
             <div className="bg-[#010112] rounded-lg p-6 mb-6 text-center">
@@ -185,7 +226,7 @@ const SessionMonitor = () => {
                 {countdown}
               </div>
               <div className="text-sm text-gray-400 mt-2">
-                {countdown === 1 ? 'minute' : 'minutes'} remaining
+                {countdown === 1 ? 'second' : 'seconds'} remaining
               </div>
             </div>
 
