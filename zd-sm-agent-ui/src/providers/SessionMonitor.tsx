@@ -11,6 +11,12 @@ const SessionMonitor = () => {
   const router = useRouter();
   const { user } = useUserSession();
   
+  // Development mode check
+  const isDev = process.env.NODE_ENV === 'development';
+  const log = (...args: any[]) => {
+    if (isDev) console.log(...args);
+  };
+  
   const [showWarning, setShowWarning] = useState(false);
   const [countdown, setCountdown] = useState(15);
   
@@ -45,7 +51,7 @@ const SessionMonitor = () => {
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.5);
       
-      console.log('🔔 Notification sound played');
+      log('🔔 Notification sound played');
     } catch (error) {
       console.error('Failed to play notification sound:', error);
     }
@@ -53,7 +59,7 @@ const SessionMonitor = () => {
 
   // Handle logout
   const handleLogout = async () => {
-    console.log('🚪 EXECUTING LOGOUT NOW!');
+    log('🚪 EXECUTING LOGOUT NOW!');
     
     // Clear all timers
     if (warningTimerRef.current) {
@@ -80,7 +86,7 @@ const SessionMonitor = () => {
 
   // Reset activity timer (stable - doesn't depend on state)
   const resetActivityTimer = useCallback(() => {
-    console.log('🔄 Activity detected - resetting timers');
+    log('🔄 Activity detected - resetting timers');
     
     // Clear existing timers
     if (warningTimerRef.current) {
@@ -101,7 +107,7 @@ const SessionMonitor = () => {
     
     // Set warning timer
     warningTimerRef.current = setTimeout(() => {
-      console.log('⚠️ WARNING TIMER FIRED - Showing inactivity warning');
+      log('⚠️ WARNING TIMER FIRED - Showing inactivity warning');
       setShowWarning(true);
       
       const warningSeconds = Math.floor(WARNING_DURATION / 1000);
@@ -112,7 +118,7 @@ const SessionMonitor = () => {
       let remainingSeconds = warningSeconds;
       countdownIntervalRef.current = setInterval(() => {
         remainingSeconds -= 1;
-        console.log(`⏱️ Countdown: ${remainingSeconds}s remaining`);
+       log(`⏱️ Countdown: ${remainingSeconds}s remaining`);
         setCountdown(remainingSeconds);
         
         if (remainingSeconds <= 0 && countdownIntervalRef.current) {
@@ -123,24 +129,24 @@ const SessionMonitor = () => {
       
       // Set final logout timer
       logoutTimerRef.current = setTimeout(() => {
-        console.log('⏰ LOGOUT TIMER FIRED!');
+        log('⏰ LOGOUT TIMER FIRED!');
         handleLogout();
       }, WARNING_DURATION);
       
     }, WARNING_TIME);
     
-    console.log(`✅ Timers set - Warning in ${WARNING_TIME/1000}s, Logout in ${LOGOUT_TIME/1000}s`);
+    log(`✅ Timers set - Warning in ${WARNING_TIME/1000}s, Logout in ${LOGOUT_TIME/1000}s`);
     
   }, [WARNING_TIME, LOGOUT_TIME, WARNING_DURATION]); // Stable dependencies
 
   // Initialize ONCE when user logs in
   useEffect(() => {
     if (!user) {
-      console.log('❌ No user - session monitor disabled');
+      ('❌ No user - session monitor disabled');
       return;
     }
     
-    console.log('👀 Session monitor initialized');
+    log('👀 Session monitor initialized');
     
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
     
@@ -154,7 +160,7 @@ const SessionMonitor = () => {
     
     // Cleanup ONLY when component unmounts or user changes
     return () => {
-      console.log('🧹 Session monitor cleanup');
+      log('🧹 Session monitor cleanup');
       events.forEach(event => {
         window.removeEventListener(event, resetActivityTimer);
       });
@@ -167,7 +173,7 @@ const SessionMonitor = () => {
 
   // Handle "Stay Logged In"
   const handleStayLoggedIn = () => {
-    console.log('✅ User clicked Stay Logged In');
+   log('✅ User clicked Stay Logged In');
     playNotificationSound();
     resetActivityTimer();
   };
