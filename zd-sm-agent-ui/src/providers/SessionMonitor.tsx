@@ -21,8 +21,8 @@ const SessionMonitor = () => {
   // ============================================
   // CONFIGURATION - TESTING MODE
   // ============================================
-  const WARNING_TIME = 30 * 1000; // 30 seconds (PRODUCTION: 45 * 60 * 1000)
-  const LOGOUT_TIME = 45 * 1000; // 45 seconds (PRODUCTION: 60 * 60 * 1000)
+  const WARNING_TIME = 55 * 60 * 1000 ; // 30 seconds for testing (30 * 1000)
+  const LOGOUT_TIME =  60 * 60 * 1000 ; // 45 seconds for testing (45 * 1000)
   const WARNING_DURATION = LOGOUT_TIME - WARNING_TIME;
   // ============================================
 
@@ -140,7 +140,7 @@ const SessionMonitor = () => {
       return;
     }
     
-    console.log('👀 Session monitor initialized for user:', user.id);
+    console.log('👀 Session monitor initialized');
     
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
     
