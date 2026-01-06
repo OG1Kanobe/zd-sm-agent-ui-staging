@@ -142,7 +142,8 @@ useEffect(() => {
             const { error: otpError } = await supabase.auth.signInWithOtp({ 
                 email,
                 options: {
-                    shouldCreateUser: false
+                    shouldCreateUser: false,
+                    emailRedirectTo: undefined
                 }
             });
             
@@ -236,7 +237,8 @@ useEffect(() => {
             const { error } = await supabase.auth.signInWithOtp({
                 email,
                 options: {
-                    shouldCreateUser: false
+                    shouldCreateUser: false,
+                    emailRedirectTo: undefined
                 }
             });
 
