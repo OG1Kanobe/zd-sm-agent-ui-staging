@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import OTPInput from '@/components/OTPInput';
+import { generateDeviceFingerprint, getDeviceInfo } from '@/lib/deviceFingerprint';
 
 export default function TestOTPPage() {
   const [otp, setOtp] = useState('');
@@ -39,3 +40,25 @@ export default function TestOTPPage() {
     </div>
   );
 }
+
+<div className="mt-12 p-6 bg-[#10101d] rounded-lg border border-gray-800 max-w-md">
+        <h2 className="text-xl font-mono text-[#5ccfa2] mb-4">Device Fingerprint Test</h2>
+        
+        <div className="space-y-2 text-sm">
+          <p className="text-gray-400">
+            Fingerprint: <span className="text-white font-mono">{generateDeviceFingerprint()}</span>
+          </p>
+          
+          <p className="text-gray-400">
+            Browser: <span className="text-white">{getDeviceInfo().browser}</span>
+          </p>
+          
+          <p className="text-gray-400">
+            OS: <span className="text-white">{getDeviceInfo().os}</span>
+          </p>
+          
+          <p className="text-gray-400">
+            Device: <span className="text-white">{getDeviceInfo().device}</span>
+          </p>
+        </div>
+      </div>
