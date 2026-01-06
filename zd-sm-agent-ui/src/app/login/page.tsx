@@ -14,6 +14,8 @@ import AuthInput from '@/components/AuthInput';
 import OTPInput from '@/components/OTPInput';
 import { generateDeviceFingerprint, generateDeviceToken } from '@/lib/deviceFingerprint';
 
+const [isAuthenticating, setIsAuthenticating] = useState(false);
+
 type AuthMode = 'login' | 'register';
 
 const AuthPage = () => {
@@ -57,10 +59,10 @@ useEffect(() => {
 
     // Redirect authenticated users away from the login page
     useEffect(() => {
-    if (!sessionLoading && user && step === 'otp') {
+    if (!sessionLoading && user && !isAuthenticating && step === 'credentials') {
         router.push('/dashboard');
     }
-}, [user, sessionLoading, router, step]);
+}, [user, sessionLoading, router, step, isAuthenticating]);
 
     // Helper function to get the correct callback URL
     const getCallbackUrl = () => {
@@ -115,41 +117,42 @@ useEffect(() => {
         }
 
         try {
-            if (mode === 'login') {
-                // Step 1: Sign in with password
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-                if (error) throw error;
-                
-                if (!data.user) {
-                    throw new Error('Login failed');
+    if (mode === 'login') {
+        setIsAuthenticating(true);
+        
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        
+        if (!data.user) {
+            throw new Error('Login failed');
+        }
+
+        setUserId(data.user.id);
+
+        const isTrusted = await checkTrustedDevice(data.user.id);
+        
+        if (isTrusted) {
+            console.log('✅ Device is trusted, skipping OTP');
+            setIsAuthenticating(false); // ← ADD HERE
+            router.push('/dashboard');
+            return;
+        } else {
+            console.log('❌ Device not trusted, showing OTP');
+            
+            const { error: otpError } = await supabase.auth.signInWithOtp({ 
+                email,
+                options: {
+                    shouldCreateUser: false
                 }
-
-                setUserId(data.user.id);
-
-
-                // Step 2: Check if device is trusted
-                const isTrusted = await checkTrustedDevice(data.user.id);
-                
-                if (isTrusted) {
-                    console.log('✅ Device is trusted, skipping OTP');
-                    // Trusted device - skip OTP and go to dashboard
-                    router.push('/dashboard');
-                } else {
-                    console.log('❌ Device not trusted, showing OTP');
-                    // Not trusted - send OTP and show OTP screen
-                    const { error: otpError } = await supabase.auth.signInWithOtp({ 
-                        email,
-                        options: {
-                            shouldCreateUser: false
-                        }
-                    });
-                    
-                    if (otpError) throw otpError;
-                    
-                    setStep('otp');
-                    setResendCooldown(60);
-    return;
-                }
+            });
+            
+            if (otpError) throw otpError;
+            
+            setStep('otp');
+            setResendCooldown(60);
+            setIsAuthenticating(false); // ← ADD HERE
+            return;
+        }
                 
             } else {
                 // Register Mode (unchanged)
