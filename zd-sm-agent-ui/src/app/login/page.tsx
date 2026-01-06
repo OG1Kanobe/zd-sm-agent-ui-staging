@@ -189,7 +189,16 @@ useEffect(() => {
                 >
                     {mode === 'login' ? "Need an account? Sign Up" : "Already have an account? Sign In"}
                 </button>
-                
+
+                {mode === 'login' && (
+                  
+                    <a href="/forgot-password"
+                    className="mt-2 block text-center text-sm text-gray-400 hover:text-[#5ccfa2] transition-colors duration-200"
+                  >
+                    Forgot your password?
+                  </a>
+                )}
+
             </motion.div>
         </div>
     );
