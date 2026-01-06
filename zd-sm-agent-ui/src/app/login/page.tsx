@@ -105,83 +105,92 @@ useEffect(() => {
     };
 
     const handleAuth = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
-        setMessage(null);
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setMessage(null);
 
-        if (!email || !password) {
-            setError("Email and password are required.");
-            setLoading(false);
-            return;
-        }
+    if (!email || !password) {
+        setError("Email and password are required.");
+        setLoading(false);
+        return;
+    }
 
-        try {
-    if (mode === 'login') {
-        setIsAuthenticating(true);
-        
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        
-        if (!data.user) {
-            throw new Error('Login failed');
-        }
-
-        setUserId(data.user.id);
-
-        const isTrusted = await checkTrustedDevice(data.user.id);
-        
-        if (isTrusted) {
-            console.log('✅ Device is trusted, skipping OTP');
-            setIsAuthenticating(false); // ← ADD HERE
-            router.push('/dashboard');
-            return;
-        } else {
-            console.log('❌ Device not trusted, showing OTP');
+    try {
+        if (mode === 'login') {
+            setIsAuthenticating(true);
             
-            const { error: otpError } = await supabase.auth.signInWithOtp({ 
-                email,
-                options: {
-                    shouldCreateUser: false,
-                    emailRedirectTo: undefined
-                }
-            });
+            // Step 1: Verify password is correct
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
             
-            if (otpError) throw otpError;
+            if (!data.user) throw new Error('Login failed');
+
+            const userIdToCheck = data.user.id;
             
-            setStep('otp');
-            setResendCooldown(60);
-            setIsAuthenticating(false); // ← ADD HERE
-            return;
-        }
-                
+            // Step 2: Immediately sign out (close the security gap)
+            await supabase.auth.signOut();
+            
+            // Step 3: Check if device is trusted
+            const isTrusted = await checkTrustedDevice(userIdToCheck);
+            
+            if (isTrusted) {
+                console.log('✅ Device is trusted, signing in');
+                // Re-authenticate for trusted device
+                await supabase.auth.signInWithPassword({ email, password });
+                setIsAuthenticating(false);
+                router.push('/dashboard');
+                return;
             } else {
-                // Register Mode (unchanged)
-                if (!username) {
-                    throw new Error("Display Name is required for registration.");
-                }
+                console.log('❌ Device not trusted, requiring OTP');
                 
-                const { error } = await supabase.auth.signUp({ 
-                    email, 
-                    password, 
-                    options: { 
-                        data: { display_name: username },
-                        emailRedirectTo: getCallbackUrl()
-                    } 
+                // Send OTP (no active session exists now)
+                const { error: otpError } = await supabase.auth.signInWithOtp({ 
+                    email,
+                    options: {
+                        shouldCreateUser: false,
+                        emailRedirectTo: undefined
+                    }
                 });
-
-                if (error) throw error;
                 
-                setMessage("Success! Check your email to confirm your account. Click the link in the email to activate your profile.");
+                if (otpError) throw otpError;
+                
+                // Store for OTP verification
+                setUserId(userIdToCheck);
+                setStep('otp');
+                setResendCooldown(60);
+                setIsAuthenticating(false);
+                return;
             }
+            
+        } else {
+            // Register Mode
+            if (!username) {
+                throw new Error("Display Name is required for registration.");
+            }
+            
+            const { error } = await supabase.auth.signUp({ 
+                email, 
+                password, 
+                options: { 
+                    data: { display_name: username },
+                    emailRedirectTo: getCallbackUrl()
+                } 
+            });
 
-        } catch (err: any) {
-            console.error("Auth Error:", err);
-            setError(err.message || 'An unknown authentication error occurred.');
-        } finally {
-            setLoading(false);
+            if (error) throw error;
+            
+            setMessage("Success! Check your email to confirm your account. Click the link in the email to activate your profile.");
         }
-    };
+
+    } catch (err: any) {
+        console.error("Auth Error:", err);
+        setError(err.message || 'An unknown authentication error occurred.');
+        setIsAuthenticating(false);
+    } finally {
+        setLoading(false);
+    }
+};
 
     // Verify OTP code
     const handleVerifyOTP = async (otpCode: string) => {
