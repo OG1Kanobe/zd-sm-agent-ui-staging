@@ -57,7 +57,7 @@ useEffect(() => {
 
     // Redirect authenticated users away from the login page
     useEffect(() => {
-    if (!sessionLoading && user && step === 'credentials') {
+    if (!sessionLoading && user && step === 'otp') {
         router.push('/dashboard');
     }
 }, [user, sessionLoading, router, step]);
@@ -126,8 +126,6 @@ useEffect(() => {
 
                 setUserId(data.user.id);
 
-                // Sign out immediately
-await supabase.auth.signOut();
 
                 // Step 2: Check if device is trusted
                 const isTrusted = await checkTrustedDevice(data.user.id);
