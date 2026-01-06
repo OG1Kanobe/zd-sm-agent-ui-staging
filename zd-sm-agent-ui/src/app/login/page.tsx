@@ -78,8 +78,16 @@ useEffect(() => {
     const checkTrustedDevice = async (userIdToCheck: string): Promise<boolean> => {
         try {
             const deviceToken = localStorage.getItem('device_token');
+
+            console.log('🔍 Checking device trust:');
+        console.log('  Device token from localStorage:', deviceToken);
+        console.log('  Checking for user ID:', userIdToCheck);
             
-            if (!deviceToken) return false;
+            if (!deviceToken) {
+            console.log('  ❌ No device token found');
+            return false;
+        }
+
             
             const { data, error } = await supabase
                 .from('trusted_devices')
@@ -89,7 +97,14 @@ useEffect(() => {
                 .gt('expires_at', new Date().toISOString())
                 .single();
             
-            if (error || !data) return false;
+             console.log('  Query result:', { data, error });
+        
+        if (error || !data) {
+            console.log('  ❌ Device not trusted:', error?.message);
+            return false;
+        }
+        
+        console.log('  ✅ Device is trusted!');
             
             // Update last_used_at
             await supabase
