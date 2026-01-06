@@ -57,10 +57,10 @@ useEffect(() => {
 
     // Redirect authenticated users away from the login page
     useEffect(() => {
-        if (!sessionLoading && user) {
-            router.push('/dashboard');
-        }
-    }, [user, sessionLoading, router]);
+    if (!sessionLoading && user && step === 'credentials') {
+        router.push('/dashboard');
+    }
+}, [user, sessionLoading, router, step]);
 
     // Helper function to get the correct callback URL
     const getCallbackUrl = () => {
