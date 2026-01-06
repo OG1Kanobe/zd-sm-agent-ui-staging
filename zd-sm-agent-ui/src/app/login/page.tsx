@@ -130,9 +130,11 @@ useEffect(() => {
                 const isTrusted = await checkTrustedDevice(data.user.id);
                 
                 if (isTrusted) {
+                    console.log('✅ Device is trusted, skipping OTP');
                     // Trusted device - skip OTP and go to dashboard
                     router.push('/dashboard');
                 } else {
+                    console.log('❌ Device not trusted, showing OTP');
                     // Not trusted - send OTP and show OTP screen
                     const { error: otpError } = await supabase.auth.signInWithOtp({ 
                         email,
