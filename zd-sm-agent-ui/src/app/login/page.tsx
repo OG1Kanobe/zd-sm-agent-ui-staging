@@ -147,6 +147,7 @@ useEffect(() => {
                     
                     setStep('otp');
                     setResendCooldown(60);
+    return;
                 }
                 
             } else {
