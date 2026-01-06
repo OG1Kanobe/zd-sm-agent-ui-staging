@@ -95,24 +95,26 @@ useEffect(() => {
                 .eq('device_token', deviceToken)
                 .eq('user_id', userIdToCheck)
                 .gt('expires_at', new Date().toISOString())
-                .single();
+                .limit(1)
             
              console.log('  Query result:', { data, error });
+
+             const deviceData = data && data.length > 0 ? data[0] : null;
         
-        if (error || !data) {
-            console.log('  ❌ Device not trusted:', error?.message);
-            return false;
-        }
-        
-        console.log('  ✅ Device is trusted!');
-            
-            // Update last_used_at
-            await supabase
-                .from('trusted_devices')
-                .update({ last_used_at: new Date().toISOString() })
-                .eq('id', data.id);
-            
-            return true;
+        if (error || !deviceData) {
+    console.log('  ❌ Device not trusted:', error?.message);
+    return false;
+}
+
+console.log('  ✅ Device is trusted!');
+
+// Update last_used_at
+await supabase
+    .from('trusted_devices')
+    .update({ last_used_at: new Date().toISOString() })
+    .eq('id', deviceData.id);  // ← Use deviceData instead of data
+
+return true;
         } catch (err) {
             console.error('Device check error:', err);
             return false;
@@ -230,6 +232,8 @@ const handleVerifyOTP = async (otpCode: string) => {
         });
         
         if (signInError) throw signInError;
+
+        console.log('✅ Signed in, userId:', userId, 'rememberDevice:', rememberDevice);
 
         // Save device as trusted if checkbox checked
         if (rememberDevice && userId) {
