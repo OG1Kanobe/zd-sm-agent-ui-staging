@@ -126,6 +126,9 @@ useEffect(() => {
 
                 setUserId(data.user.id);
 
+                // Sign out immediately
+await supabase.auth.signOut();
+
                 // Step 2: Check if device is trusted
                 const isTrusted = await checkTrustedDevice(data.user.id);
                 
