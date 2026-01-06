@@ -14,7 +14,6 @@ import AuthInput from '@/components/AuthInput';
 import OTPInput from '@/components/OTPInput';
 import { generateDeviceFingerprint, generateDeviceToken } from '@/lib/deviceFingerprint';
 
-const [isAuthenticating, setIsAuthenticating] = useState(false);
 
 type AuthMode = 'login' | 'register';
 
@@ -36,6 +35,7 @@ const [userId, setUserId] = useState<string | null>(null);
 const [rememberDevice, setRememberDevice] = useState(false);
 const [otpLoading, setOtpLoading] = useState(false);
 const [resendCooldown, setResendCooldown] = useState(0);
+const [isAuthenticating, setIsAuthenticating] = useState(false);
 
     // Add this near the top of your AuthPage component
 useEffect(() => {
