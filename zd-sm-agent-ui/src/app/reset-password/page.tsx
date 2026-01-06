@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Lock, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import AuthInput from '@/components/AuthInput';
 
-export default function ResetPasswordPage() {
+function ResetPasswordPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -18,7 +18,6 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [validToken, setValidToken] = useState<boolean | null>(null);
 
-  // Verify token on mount
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -39,7 +38,6 @@ export default function ResetPasswordPage() {
     setLoading(true);
     setError(null);
 
-    // Validation
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       setLoading(false);
@@ -61,7 +59,6 @@ export default function ResetPasswordPage() {
 
       setSuccess(true);
 
-      // Redirect to login after 3 seconds
       setTimeout(() => {
         router.push('/login');
       }, 3000);
@@ -74,7 +71,6 @@ export default function ResetPasswordPage() {
     }
   };
 
-  // Loading state while checking token
   if (validToken === null) {
     return (
       <div className="min-h-screen bg-[#010112] flex justify-center items-center">
@@ -84,7 +80,6 @@ export default function ResetPasswordPage() {
     );
   }
 
-  // Invalid token
   if (validToken === false) {
     return (
       <div className="min-h-screen bg-[#010112] flex justify-center items-center p-4">
@@ -99,7 +94,7 @@ export default function ResetPasswordPage() {
             This password reset link is invalid or has expired.
           </p>
           
-           <a href="/forgot-password"
+            <a href="/forgot-password"
             className="inline-block bg-[#5ccfa2] text-black px-6 py-3 rounded-lg font-semibold hover:bg-[#45a881] transition-colors"
           >
             Request New Link
@@ -109,7 +104,6 @@ export default function ResetPasswordPage() {
     );
   }
 
-  // Success state
   if (success) {
     return (
       <div className="min-h-screen bg-[#010112] flex justify-center items-center p-4">
@@ -131,7 +125,6 @@ export default function ResetPasswordPage() {
     );
   }
 
-  // Reset password form
   return (
     <div className="min-h-screen bg-[#010112] flex justify-center items-center p-4">
       <motion.div
@@ -197,5 +190,17 @@ export default function ResetPasswordPage() {
         </form>
       </motion.div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#010112] flex justify-center items-center">
+        <div className="text-white font-mono">Loading...</div>
+      </div>
+    }>
+      <ResetPasswordPageContent />
+    </Suspense>
   );
 }
