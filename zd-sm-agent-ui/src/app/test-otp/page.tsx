@@ -37,11 +37,8 @@ export default function TestOTPPage() {
       <p className="mt-2 text-gray-500 text-xs">
         Try entering: 123456 (correct) or anything else (error)
       </p>
-    </div>
-  );
-}
 
-<div className="mt-12 p-6 bg-[#10101d] rounded-lg border border-gray-800 max-w-md">
+      <div className="mt-12 p-6 bg-[#10101d] rounded-lg border border-gray-800 max-w-md">
         <h2 className="text-xl font-mono text-[#5ccfa2] mb-4">Device Fingerprint Test</h2>
         
         <div className="space-y-2 text-sm">
@@ -62,3 +59,6 @@ export default function TestOTPPage() {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
