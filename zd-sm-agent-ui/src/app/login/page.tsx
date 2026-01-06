@@ -11,19 +11,29 @@ import { useUserSession } from '@/hooks/use-user-session';
 import AuthInput from '@/components/AuthInput'; 
 // --- END PRODUCTION SUPABASE IMPORTS ---
 
+import OTPInput from '@/components/OTPInput';
+import { generateDeviceFingerprint, generateDeviceToken } from '@/lib/deviceFingerprint';
+
 type AuthMode = 'login' | 'register';
 
 const AuthPage = () => {
     const router = useRouter();
     const { user, loading: sessionLoading } = useUserSession();
 
-    const [mode, setMode] = useState<AuthMode>('login');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [username, setUsername] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [message, setMessage] = useState<string | null>(null);
+    type LoginStep = 'credentials' | 'otp';
+
+const [mode, setMode] = useState<AuthMode>('login');
+const [step, setStep] = useState<LoginStep>('credentials');
+const [email, setEmail] = useState('');
+const [password, setPassword] = useState('');
+const [username, setUsername] = useState('');
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
+const [message, setMessage] = useState<string | null>(null);
+const [userId, setUserId] = useState<string | null>(null);
+const [rememberDevice, setRememberDevice] = useState(false);
+const [otpLoading, setOtpLoading] = useState(false);
+const [resendCooldown, setResendCooldown] = useState(0);
 
     // Add this near the top of your AuthPage component
 useEffect(() => {
@@ -34,6 +44,16 @@ useEffect(() => {
     setMessage('You were logged out due to inactivity. Please log in again.');
   }
 }, []);
+
+// Resend cooldown timer
+    useEffect(() => {
+        if (resendCooldown > 0) {
+            const timer = setTimeout(() => {
+                setResendCooldown(prev => prev - 1);
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [resendCooldown]); 
 
     // Redirect authenticated users away from the login page
     useEffect(() => {
@@ -52,6 +72,36 @@ useEffect(() => {
         return `${window.location.origin}/auth/callback`;
     };
 
+    // Check if current device is trusted
+    const checkTrustedDevice = async (userIdToCheck: string): Promise<boolean> => {
+        try {
+            const deviceToken = localStorage.getItem('device_token');
+            
+            if (!deviceToken) return false;
+            
+            const { data, error } = await supabase
+                .from('trusted_devices')
+                .select('*')
+                .eq('device_token', deviceToken)
+                .eq('user_id', userIdToCheck)
+                .gt('expires_at', new Date().toISOString())
+                .single();
+            
+            if (error || !data) return false;
+            
+            // Update last_used_at
+            await supabase
+                .from('trusted_devices')
+                .update({ last_used_at: new Date().toISOString() })
+                .eq('id', data.id);
+            
+            return true;
+        } catch (err) {
+            console.error('Device check error:', err);
+            return false;
+        }
+    };
+
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
@@ -66,15 +116,43 @@ useEffect(() => {
 
         try {
             if (mode === 'login') {
-                const { error } = await supabase.auth.signInWithPassword({ email, password });
+                // Step 1: Sign in with password
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
                 if (error) throw error;
-                // Redirection is handled by the useEffect hook after session update
-            } else { // Register Mode
+                
+                if (!data.user) {
+                    throw new Error('Login failed');
+                }
+
+                setUserId(data.user.id);
+
+                // Step 2: Check if device is trusted
+                const isTrusted = await checkTrustedDevice(data.user.id);
+                
+                if (isTrusted) {
+                    // Trusted device - skip OTP and go to dashboard
+                    router.push('/dashboard');
+                } else {
+                    // Not trusted - send OTP and show OTP screen
+                    const { error: otpError } = await supabase.auth.signInWithOtp({ 
+                        email,
+                        options: {
+                            shouldCreateUser: false
+                        }
+                    });
+                    
+                    if (otpError) throw otpError;
+                    
+                    setStep('otp');
+                    setResendCooldown(60);
+                }
+                
+            } else {
+                // Register Mode (unchanged)
                 if (!username) {
                     throw new Error("Display Name is required for registration.");
                 }
                 
-                // Supabase registration with user metadata and proper callback
                 const { error } = await supabase.auth.signUp({ 
                     email, 
                     password, 
@@ -97,6 +175,79 @@ useEffect(() => {
         }
     };
 
+    // Verify OTP code
+    const handleVerifyOTP = async (otpCode: string) => {
+        setOtpLoading(true);
+        setError(null);
+
+        try {
+            const { error } = await supabase.auth.verifyOtp({
+                email,
+                token: otpCode,
+                type: 'email'
+            });
+
+            if (error) throw error;
+
+            // OTP verified successfully
+            if (rememberDevice && userId) {
+                // Save device as trusted
+                const deviceToken = generateDeviceToken();
+                const deviceFingerprint = generateDeviceFingerprint();
+
+                await supabase.from('trusted_devices').insert({
+                    user_id: userId,
+                    device_token: deviceToken,
+                    device_fingerprint: deviceFingerprint,
+                    ip_address: null,
+                    user_agent: navigator.userAgent,
+                    expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                });
+
+                localStorage.setItem('device_token', deviceToken);
+            }
+
+            // Redirect to dashboard
+            router.push('/dashboard');
+
+        } catch (err: any) {
+            console.error('OTP verification error:', err);
+            setError('Invalid or expired code. Please try again.');
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
+    // Resend OTP code
+    const handleResendOTP = async () => {
+        if (resendCooldown > 0) return;
+
+        setOtpLoading(true);
+        setError(null);
+
+        try {
+            const { error } = await supabase.auth.signInWithOtp({
+                email,
+                options: {
+                    shouldCreateUser: false
+                }
+            });
+
+            if (error) throw error;
+
+            setMessage('New code sent to your email');
+            setResendCooldown(60);
+
+            setTimeout(() => setMessage(null), 3000);
+
+        } catch (err: any) {
+            console.error('Resend OTP error:', err);
+            setError('Failed to resend code. Please try again.');
+        } finally {
+            setOtpLoading(false);
+        }
+    };
+
     if (sessionLoading || user) {
         return (
             <div className="min-h-screen bg-[#010112] flex justify-center items-center text-white">
@@ -115,9 +266,53 @@ useEffect(() => {
                 className="w-full max-w-md bg-[#10101d] rounded-2xl shadow-2xl p-8 border border-gray-800"
             >
                 <h1 className="text-3xl font-mono text-[#5ccfa2] text-center mb-6">
-                    {mode === 'login' ? 'Agent Sign In' : 'Agent Activation'}
+                    {step === 'otp' 
+                        ? 'Enter Verification Code' 
+                        : mode === 'login' 
+                            ? 'Agent Sign In' 
+                            : 'Agent Activation'
+                    }
                 </h1>
                 
+                    {step === 'otp' && (
+                    <div className="mb-6">
+                        <p className="text-gray-400 text-center text-sm mb-6">
+                            We sent a 6-digit code to <span className="text-[#5ccfa2] font-semibold">{email}</span>
+                        </p>
+
+                        <OTPInput
+                            onComplete={handleVerifyOTP}
+                            error={!!error}
+                            disabled={otpLoading}
+                        />
+
+                        <div className="mt-6 flex items-center justify-center">
+                            <label className="flex items-center space-x-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={rememberDevice}
+                                    onChange={(e) => setRememberDevice(e.target.checked)}
+                                    className="w-4 h-4 rounded border-gray-700 bg-[#1f2937] text-[#5ccfa2] focus:ring-[#5ccfa2]"
+                                />
+                                <span className="text-sm text-gray-300">Remember this device for 30 days</span>
+                            </label>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleResendOTP}
+                            disabled={resendCooldown > 0 || otpLoading}
+                            className="mt-4 w-full text-sm text-gray-400 hover:text-[#5ccfa2] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {resendCooldown > 0 
+                                ? `Resend code in ${resendCooldown}s` 
+                                : 'Resend code'
+                            }
+                        </button>
+                    </div>
+                )}
+
+                {step === 'credentials' && (
                 <form onSubmit={handleAuth} className="space-y-4">
                     {mode === 'register' && (
                         <AuthInput 
@@ -178,6 +373,7 @@ useEffect(() => {
                         )}
                     </button>
                 </form>
+                )}
 
                 <button
                     onClick={() => {
