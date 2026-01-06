@@ -236,37 +236,57 @@ const handleVerifyOTP = async (otpCode: string) => {
         console.log('✅ Signed in, userId:', userId, 'rememberDevice:', rememberDevice);
 
         // Save device as trusted if checkbox checked
-        if (rememberDevice && userId) {
-            // Check if device token already exists
-            let deviceToken = localStorage.getItem('device_token');
-            
-            if (!deviceToken) {
-                // Generate new token
-                deviceToken = generateDeviceToken();
-                const deviceFingerprint = generateDeviceFingerprint();
+        // Save device as trusted if checkbox checked
+if (rememberDevice && userId) {
+    console.log('💾 Attempting to save device...');
+    
+    // Check if device token already exists
+    let deviceToken = localStorage.getItem('device_token');
+    console.log('  Existing device token:', deviceToken);
+    
+    if (!deviceToken) {
+        // Generate new token
+        deviceToken = generateDeviceToken();
+        const deviceFingerprint = generateDeviceFingerprint();
+        
+        console.log('  Generated new token:', deviceToken);
+        console.log('  Fingerprint:', deviceFingerprint);
 
-                await supabase.from('trusted_devices').insert({
-                    user_id: userId,
-                    device_token: deviceToken,
-                    device_fingerprint: deviceFingerprint,
-                    ip_address: null,
-                    user_agent: navigator.userAgent,
-                    expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-                });
-
-                localStorage.setItem('device_token', deviceToken);
-            } else {
-                // Update existing device
-                await supabase
-                    .from('trusted_devices')
-                    .update({ 
-                        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                        last_used_at: new Date().toISOString()
-                    })
-                    .eq('device_token', deviceToken)
-                    .eq('user_id', userId);
-            }
+        const { data, error } = await supabase.from('trusted_devices').insert({
+            user_id: userId,
+            device_token: deviceToken,
+            device_fingerprint: deviceFingerprint,
+            ip_address: null,
+            user_agent: navigator.userAgent,
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        });
+        
+        console.log('  Insert result:', { data, error });
+        
+        if (error) {
+            console.error('  ❌ Failed to save device:', error);
+        } else {
+            console.log('  ✅ Device saved successfully');
+            localStorage.setItem('device_token', deviceToken);
         }
+    } else {
+        // Update existing device
+        console.log('  Updating existing device...');
+        
+        const { data, error } = await supabase
+            .from('trusted_devices')
+            .update({ 
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                last_used_at: new Date().toISOString()
+            })
+            .eq('device_token', deviceToken)
+            .eq('user_id', userId);
+        
+        console.log('  Update result:', { data, error });
+    }
+} else {
+    console.log('💾 NOT saving device - rememberDevice:', rememberDevice, 'userId:', userId);
+}
 
         // Redirect to dashboard
         router.push('/dashboard');
