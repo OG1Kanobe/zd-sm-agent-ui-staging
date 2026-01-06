@@ -255,7 +255,7 @@ useEffect(() => {
         }
     };
 
-    if (sessionLoading || user) {
+    if (sessionLoading) {
         return (
             <div className="min-h-screen bg-[#010112] flex justify-center items-center text-white">
                 <Loader2 className="w-8 h-8 animate-spin text-[#5ccfa2]" />
