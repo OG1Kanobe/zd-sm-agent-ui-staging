@@ -193,23 +193,37 @@ useEffect(() => {
 };
 
     // Verify OTP code
-    const handleVerifyOTP = async (otpCode: string) => {
-        setOtpLoading(true);
-        setError(null);
+   // Verify OTP code
+const handleVerifyOTP = async (otpCode: string) => {
+    setOtpLoading(true);
+    setError(null);
 
-        try {
-            const { error } = await supabase.auth.verifyOtp({
-                email,
-                token: otpCode,
-                type: 'email'
-            });
+    try {
+        // Verify the OTP code
+        const { error } = await supabase.auth.verifyOtp({
+            email,
+            token: otpCode,
+            type: 'email'
+        });
 
-            if (error) throw error;
+        if (error) throw error;
 
-            // OTP verified successfully
-            if (rememberDevice && userId) {
-                // Save device as trusted
-                const deviceToken = generateDeviceToken();
+        // Sign in with password to create session
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+        
+        if (signInError) throw signInError;
+
+        // Save device as trusted if checkbox checked
+        if (rememberDevice && userId) {
+            // Check if device token already exists
+            let deviceToken = localStorage.getItem('device_token');
+            
+            if (!deviceToken) {
+                // Generate new token
+                deviceToken = generateDeviceToken();
                 const deviceFingerprint = generateDeviceFingerprint();
 
                 await supabase.from('trusted_devices').insert({
@@ -222,18 +236,29 @@ useEffect(() => {
                 });
 
                 localStorage.setItem('device_token', deviceToken);
+            } else {
+                // Update existing device
+                await supabase
+                    .from('trusted_devices')
+                    .update({ 
+                        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                        last_used_at: new Date().toISOString()
+                    })
+                    .eq('device_token', deviceToken)
+                    .eq('user_id', userId);
             }
-
-            // Redirect to dashboard
-            router.push('/dashboard');
-
-        } catch (err: any) {
-            console.error('OTP verification error:', err);
-            setError('Invalid or expired code. Please try again.');
-        } finally {
-            setOtpLoading(false);
         }
-    };
+
+        // Redirect to dashboard
+        router.push('/dashboard');
+
+    } catch (err: any) {
+        console.error('OTP verification error:', err);
+        setError('Invalid or expired code. Please try again.');
+    } finally {
+        setOtpLoading(false);
+    }
+};
 
     // Resend OTP code
     const handleResendOTP = async () => {
