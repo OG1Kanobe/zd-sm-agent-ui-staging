@@ -464,6 +464,13 @@ const ViewPromptsModal: React.FC<{
   aiPrompt: string | null;
   onClose: () => void;
 }> = ({ userPrompt, aiPrompt, onClose }) => {
+  // Helper to convert \n to actual line breaks
+  const formatPrompt = (text: string) => {
+    if (!text) return '';
+    // Replace literal \n with actual newlines
+    return text.replace(/\\n/g, '\n');
+  };
+
   return (
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6">
@@ -475,12 +482,12 @@ const ViewPromptsModal: React.FC<{
           <div className="p-6 space-y-4">
             <div>
               <h3 className="text-sm font-semibold text-gray-400 mb-2">User Prompt:</h3>
-              <p className="text-white bg-[#010112] p-3 rounded-lg text-sm whitespace-pre-line">{userPrompt}</p>
+              <p className="text-white bg-[#010112] p-3 rounded-lg text-sm whitespace-pre-line">{formatPrompt(userPrompt)}</p>
             </div>
             {aiPrompt && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-400 mb-2">AI Enhanced Prompt:</h3>
-                <p className="text-white bg-[#010112] p-3 rounded-lg text-sm whitespace-pre-line">{aiPrompt}</p>
+                <p className="text-white bg-[#010112] p-3 rounded-lg text-sm whitespace-pre-line">{formatPrompt(aiPrompt)}</p>
               </div>
             )}
           </div>
