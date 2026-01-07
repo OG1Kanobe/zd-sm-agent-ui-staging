@@ -468,8 +468,8 @@ const ViewPromptsModal: React.FC<{
   const formatPrompt = (promptString: string) => {
     try {
       const parsed = JSON.parse(promptString);
-      // Return as array of paragraphs instead of joined string
-      return Object.values(parsed) as string[];
+      // Convert all values to strings
+      return Object.values(parsed).map(value => String(value));
     } catch (error) {
       return [promptString]; // If not JSON, return as single item array
     }
