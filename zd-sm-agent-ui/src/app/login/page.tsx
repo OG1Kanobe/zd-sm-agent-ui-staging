@@ -76,52 +76,41 @@ useEffect(() => {
 
     // Check if current device is trusted
     const checkTrustedDevice = async (userIdToCheck: string): Promise<boolean> => {
-        try {
-            const deviceToken = localStorage.getItem('device_token');
-
-            console.log('🔍 Checking device trust:');
-        console.log('  Device token from localStorage:', deviceToken);
-        console.log('  Checking for user ID:', userIdToCheck);
-            
-            if (!deviceToken) {
-            console.log('  ❌ No device token found');
+    try {
+        const deviceToken = localStorage.getItem('device_token');
+        
+        if (!deviceToken) {
             return false;
         }
+        
+        const { data, error } = await supabase
+            .from('trusted_devices')
+            .select('*')
+            .eq('device_token', deviceToken)
+            .eq('user_id', userIdToCheck)
+            .gt('expires_at', new Date().toISOString())
+            .limit(1);
 
-            
-            const { data, error } = await supabase
-                .from('trusted_devices')
-                .select('*')
-                .eq('device_token', deviceToken)
-                .eq('user_id', userIdToCheck)
-                .gt('expires_at', new Date().toISOString())
-                .limit(1)
-            
-             console.log('  Query result:', { data, error });
-
-             const deviceData = data && data.length > 0 ? data[0] : null;
+        const deviceData = data && data.length > 0 ? data[0] : null;
         
         if (error || !deviceData) {
-    console.log('  ❌ Device not trusted:', error?.message);
-    return false;
-}
-
-console.log('  ✅ Device is trusted!');
-
-// Update last_used_at
-await supabase
-    .from('trusted_devices')
-    .update({ last_used_at: new Date().toISOString() })
-    .eq('id', deviceData.id);  // ← Use deviceData instead of data
-
-return true;
-        } catch (err) {
-            console.error('Device check error:', err);
             return false;
         }
-    };
 
-    const handleAuth = async (e: React.FormEvent) => {
+        // Update last_used_at
+        await supabase
+            .from('trusted_devices')
+            .update({ last_used_at: new Date().toISOString() })
+            .eq('id', deviceData.id);
+
+        return true;
+    } catch (err) {
+        console.error('Device check error:', err);
+        return false;
+    }
+};
+
+const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -149,13 +138,10 @@ return true;
             const isTrusted = await checkTrustedDevice(userIdToCheck);
             
             if (isTrusted) {
-                console.log('✅ Device is trusted, proceeding to dashboard');
                 setIsAuthenticating(false);
                 router.push('/dashboard');
                 return;
             } else {
-                console.log('❌ Device not trusted, requiring OTP');
-                
                 // Set OTP step BEFORE signing out (prevents redirect loop)
                 setUserId(userIdToCheck);
                 setStep('otp');
@@ -208,8 +194,8 @@ return true;
     }
 };
 
-    // Verify OTP code
-   const handleVerifyOTP = async (otpCode: string) => {
+// Verify OTP code
+const handleVerifyOTP = async (otpCode: string) => {
     setOtpLoading(true);
     setError(null);
 
@@ -231,25 +217,17 @@ return true;
         
         if (signInError) throw signInError;
 
-        console.log('✅ Signed in, userId:', userId, 'rememberDevice:', rememberDevice);
-
         // Save device as trusted if checkbox checked
         if (rememberDevice && userId) {
-            console.log('💾 Attempting to save device...');
-            
             // Check if device token already exists
             let deviceToken = localStorage.getItem('device_token');
-            console.log('  Existing device token:', deviceToken);
             
             if (!deviceToken) {
                 // Generate new token
                 deviceToken = generateDeviceToken();
                 const deviceFingerprint = generateDeviceFingerprint();
-                
-                console.log('  Generated new token:', deviceToken);
-                console.log('  Fingerprint:', deviceFingerprint);
 
-                const { data, error } = await supabase.from('trusted_devices').insert({
+                const { error } = await supabase.from('trusted_devices').insert({
                     user_id: userId,
                     device_token: deviceToken,
                     device_fingerprint: deviceFingerprint,
@@ -258,18 +236,11 @@ return true;
                     expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
                 });
                 
-                console.log('  Insert result:', { data, error });
-                
-                if (error) {
-                    console.error('  ❌ Failed to save device:', error);
-                } else {
-                    console.log('  ✅ Device saved successfully');
+                if (!error) {
                     localStorage.setItem('device_token', deviceToken);
                 }
             } else {
                 // Update existing device
-                console.log('  Updating existing device...');
-                
                 const { data, error } = await supabase
                     .from('trusted_devices')
                     .update({ 
@@ -280,15 +251,11 @@ return true;
                     .eq('user_id', userId)
                     .select();
                 
-                console.log('  Update result:', { data, error, rowsAffected: data?.length });
-                
                 // If no rows were updated, the device doesn't exist - INSERT it
                 if (!error && (!data || data.length === 0)) {
-                    console.log('  No rows updated, inserting new device...');
-                    
                     const deviceFingerprint = generateDeviceFingerprint();
                     
-                    const { error: insertError } = await supabase.from('trusted_devices').insert({
+                    await supabase.from('trusted_devices').insert({
                         user_id: userId,
                         device_token: deviceToken,
                         device_fingerprint: deviceFingerprint,
@@ -296,16 +263,8 @@ return true;
                         user_agent: navigator.userAgent,
                         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
                     });
-                    
-                    if (insertError) {
-                        console.error('  ❌ Failed to insert device:', insertError);
-                    } else {
-                        console.log('  ✅ Device inserted successfully');
-                    }
                 }
             }
-        } else {
-            console.log('💾 NOT saving device - rememberDevice:', rememberDevice, 'userId:', userId);
         }
 
         // Redirect to dashboard
@@ -477,25 +436,28 @@ return true;
                 </form>
                 )}
 
-                <button
-                    onClick={() => {
-                        setMode(mode === 'login' ? 'register' : 'login');
-                        setError(null);
-                        setMessage(null);
-                    }}
-                    className="mt-4 w-full text-center text-sm text-gray-400 hover:text-[#5ccfa2] transition-colors duration-200"
-                >
-                    {mode === 'login' ? "Need an account? Sign Up" : "Already have an account? Sign In"}
-                </button>
+                {step === 'credentials' && (
+    <>
+        <button
+            onClick={() => {
+                setMode(mode === 'login' ? 'register' : 'login');
+                setError(null);
+                setMessage(null);
+            }}
+            className="mt-4 w-full text-center text-sm text-gray-400 hover:text-[#5ccfa2] transition-colors duration-200"
+        >
+            {mode === 'login' ? "Need an account? Sign Up" : "Already have an account? Sign In"}
+        </button>
 
-                {mode === 'login' && (
-                  
-                    <a href="/forgot-password"
-                    className="mt-2 block text-center text-sm text-gray-400 hover:text-[#5ccfa2] transition-colors duration-200"
-                  >
-                    Forgot your password?
-                  </a>
-                )}
+        {mode === 'login' && (
+            <a href="/forgot-password"
+                className="mt-2 block text-center text-sm text-gray-400 hover:text-[#5ccfa2] transition-colors duration-200"
+            >
+                Forgot your password?
+            </a>
+        )}
+    </>
+)}
 
             </motion.div>
         </div>
