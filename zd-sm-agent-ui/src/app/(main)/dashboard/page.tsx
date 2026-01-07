@@ -464,17 +464,6 @@ const ViewPromptsModal: React.FC<{
   aiPrompt: string | null;
   onClose: () => void;
 }> = ({ userPrompt, aiPrompt, onClose }) => {
-  // Helper to parse and format JSON prompt
-  const formatPrompt = (promptString: string) => {
-    try {
-      const parsed = JSON.parse(promptString);
-      // Convert all values to strings
-      return Object.values(parsed).map(value => String(value));
-    } catch (error) {
-      return [promptString]; // If not JSON, return as single item array
-    }
-  };
-
   return (
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6">
@@ -486,20 +475,12 @@ const ViewPromptsModal: React.FC<{
           <div className="p-6 space-y-4">
             <div>
               <h3 className="text-sm font-semibold text-gray-400 mb-2">User Prompt:</h3>
-              <div className="text-white bg-[#010112] p-3 rounded-lg text-sm space-y-2">
-                {formatPrompt(userPrompt).map((text, idx) => (
-                  <p key={idx}>{text}</p>
-                ))}
-              </div>
+              <p className="text-white bg-[#010112] p-3 rounded-lg text-sm whitespace-pre-line">{userPrompt}</p>
             </div>
             {aiPrompt && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-400 mb-2">AI Enhanced Prompt:</h3>
-                <div className="text-white bg-[#010112] p-3 rounded-lg text-sm space-y-2">
-                  {formatPrompt(aiPrompt).map((text, idx) => (
-                    <p key={idx}>{text}</p>
-                  ))}
-                </div>
+                <p className="text-white bg-[#010112] p-3 rounded-lg text-sm whitespace-pre-line">{aiPrompt}</p>
               </div>
             )}
           </div>
