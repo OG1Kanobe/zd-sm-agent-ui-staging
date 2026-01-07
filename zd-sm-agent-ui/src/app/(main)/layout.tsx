@@ -10,6 +10,7 @@ import { HighlightContext } from '@/contexts/HighlightContext';
 import NotificationPanel from '@/components/NotificationPanel';
 import SessionMonitor from '@/providers/SessionMonitor';
 import LaunchpadWrapper from '@/components/LaunchpadWrapper';
+import { getGreeting } from '@/lib/greetings';
 
 export default function MainLayout({
   children,
@@ -20,6 +21,7 @@ export default function MainLayout({
   const { user } = useUserSession();
   const userId = user?.id;
   const userDisplayName = user?.user_metadata?.display_name || user?.email || 'Architect-Agent';
+  const [greetingData, setGreetingData] = useState(() => getGreeting(userDisplayName));
 
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -177,9 +179,9 @@ export default function MainLayout({
                 <div className="flex items-center justify-between">
                   <div>
                     <h1 className="text-4xl font-extrabold text-white">
-                      Hello, <span className="text-[#5ccfa2]">{userDisplayName}</span>
-                    </h1>
-                    <p className="text-sm text-gray-400 mt-1">Welcome to your Agent Dashboard.</p>
+  {greetingData.greeting}
+</h1>
+<p className="text-sm text-gray-400 mt-1">{greetingData.subtext}</p>
                   </div>
 
                   <div className="relative">
