@@ -22,6 +22,10 @@ export default function MainLayout({
   const userId = user?.id;
   const userDisplayName = user?.user_metadata?.display_name || user?.email || 'Architect-Agent';
   const [greetingData, setGreetingData] = useState(() => getGreeting(userDisplayName));
+  // Update greeting every 30 minutes (optional)
+useEffect(() => {
+  setGreetingData(getGreeting(userDisplayName));
+}, [userDisplayName]);
 
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -178,8 +182,8 @@ export default function MainLayout({
               <header className="sticky top-0 z-10 bg-[#010112] pt-8 px-8 pb-4 border-b border-gray-800 shadow-xl">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h1 className="text-4xl font-extrabold text-white">
-  {greetingData.greeting}
+                    <h1 className="text-4xl font-extrabold text-white font-mono">
+  {greetingData.greeting} <span className="text-[#5ccfa2]">{greetingData.userName}</span>
 </h1>
 <p className="text-sm text-gray-400 mt-1">{greetingData.subtext}</p>
                   </div>
