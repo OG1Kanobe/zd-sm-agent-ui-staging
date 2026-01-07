@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Zap, Home, Settings, Calendar, LogOut, Bell } from 'lucide-react';
+import { Zap, Home, Settings, Calendar, LogOut, Bell, Key } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -144,6 +144,17 @@ export default function MainLayout({
                     <Calendar className="w-5 h-5 mr-3" />
                     Publishing
                   </a>
+
+                   {/* NEW: INTEGRATIONS LINK */}
+  
+   <a href="/integrations"
+    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
+      pathname === '/integrations' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
+    }`}
+  >
+    <Key className="w-5 h-5 mr-3" />
+    Integrations
+  </a>
                 </nav>
               </div>
 
