@@ -145,23 +145,25 @@ return true;
 
             const userIdToCheck = data.user.id;
             
-            // Step 2: Immediately sign out (close the security gap)
-            await supabase.auth.signOut();
-            
-            // Step 3: Check if device is trusted
+            // Step 2: Check if device is trusted (while still signed in)
             const isTrusted = await checkTrustedDevice(userIdToCheck);
             
             if (isTrusted) {
-                console.log('✅ Device is trusted, signing in');
-                // Re-authenticate for trusted device
-                await supabase.auth.signInWithPassword({ email, password });
+                console.log('✅ Device is trusted, proceeding to dashboard');
                 setIsAuthenticating(false);
                 router.push('/dashboard');
                 return;
             } else {
                 console.log('❌ Device not trusted, requiring OTP');
                 
-                // Send OTP (no active session exists now)
+                // Set OTP step BEFORE signing out (prevents redirect loop)
+                setUserId(userIdToCheck);
+                setStep('otp');
+                
+                // Sign out to enforce OTP requirement
+                await supabase.auth.signOut();
+                
+                // Send OTP
                 const { error: otpError } = await supabase.auth.signInWithOtp({ 
                     email,
                     options: {
@@ -172,9 +174,6 @@ return true;
                 
                 if (otpError) throw otpError;
                 
-                // Store for OTP verification
-                setUserId(userIdToCheck);
-                setStep('otp');
                 setResendCooldown(60);
                 setIsAuthenticating(false);
                 return;
