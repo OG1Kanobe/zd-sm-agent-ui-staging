@@ -459,7 +459,6 @@ const FeedbackModal: React.FC<{
 };
 
 // VIEW PROMPTS MODAL
-// VIEW PROMPTS MODAL
 const ViewPromptsModal: React.FC<{
   userPrompt: string;
   aiPrompt: string | null;
@@ -469,33 +468,42 @@ const ViewPromptsModal: React.FC<{
   const formatPrompt = (promptString: string) => {
     try {
       const parsed = JSON.parse(promptString);
-      return Object.values(parsed).join('\n\n');
+      // Return as array of paragraphs instead of joined string
+      return Object.values(parsed) as string[];
     } catch (error) {
-      return promptString; // If not JSON, return as-is
+      return [promptString]; // If not JSON, return as single item array
     }
   };
 
   return (
     <AnimatePresence>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-6">
-        <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-2xl rounded-xl shadow-2xl">
-          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+        <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} onClick={(e) => e.stopPropagation()} className="bg-[#0b0b10] w-full max-w-2xl rounded-xl shadow-2xl max-h-[80vh] overflow-y-auto">
+          <div className="flex items-center justify-between p-4 border-b border-gray-800 sticky top-0 bg-[#0b0b10]">
             <h2 className="text-lg font-bold text-white">Prompts</h2>
             <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-800"><X className="w-5 h-5 text-gray-400" /></button>
           </div>
           <div className="p-6 space-y-4">
             <div>
               <h3 className="text-sm font-semibold text-gray-400 mb-2">User Prompt:</h3>
-              <p className="text-white bg-[#010112] p-3 rounded-lg text-sm whitespace-pre-wrap">{formatPrompt(userPrompt)}</p>
+              <div className="text-white bg-[#010112] p-3 rounded-lg text-sm space-y-2">
+                {formatPrompt(userPrompt).map((text, idx) => (
+                  <p key={idx}>{text}</p>
+                ))}
+              </div>
             </div>
             {aiPrompt && (
               <div>
                 <h3 className="text-sm font-semibold text-gray-400 mb-2">AI Enhanced Prompt:</h3>
-                <p className="text-white bg-[#010112] p-3 rounded-lg text-sm whitespace-pre-wrap">{formatPrompt(aiPrompt)}</p>
+                <div className="text-white bg-[#010112] p-3 rounded-lg text-sm space-y-2">
+                  {formatPrompt(aiPrompt).map((text, idx) => (
+                    <p key={idx}>{text}</p>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-          <div className="p-4 border-t border-gray-800 flex justify-end">
+          <div className="p-4 border-t border-gray-800 flex justify-end sticky bottom-0 bg-[#0b0b10]">
             <button onClick={onClose} className="px-4 py-2 bg-[#5ccfa2] text-black rounded-lg font-semibold">Close</button>
           </div>
         </motion.div>
