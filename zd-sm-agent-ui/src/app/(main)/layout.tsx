@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Zap, Home, Settings, Calendar, LogOut, Bell, Key } from 'lucide-react';
+import { Zap, Home, Settings, Calendar, LogOut, Bell, Key, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -22,7 +22,15 @@ export default function MainLayout({
   const userId = user?.id;
   const userDisplayName = user?.user_metadata?.display_name || user?.email || 'Architect-Agent';
   const [greetingData, setGreetingData] = useState(() => getGreeting(userDisplayName));
-  // Update greeting every 30 minutes (optional)
+  // Don't render until user is loaded
+if (!user) {
+  return (
+    <div className="min-h-screen bg-[#010112] flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-[#5ccfa2]" />
+    </div>
+  );
+}
+  // Update greeting to use user name correctly
 useEffect(() => {
   setGreetingData(getGreeting(userDisplayName));
 }, [userDisplayName]);
