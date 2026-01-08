@@ -18,11 +18,63 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user } = useUserSession();
-  const userId = user?.id;
-  const userDisplayName = user?.user_metadata?.display_name || user?.email || 'Architect-Agent';
-  const [greetingData, setGreetingData] = useState(() => getGreeting(userDisplayName));
-  // Don't render until user is loaded
+const { user } = useUserSession();
+const userId = user?.id;
+const userDisplayName = user?.user_metadata?.display_name || user?.email || 'Architect-Agent';
+
+const [greetingData, setGreetingData] = useState(() => getGreeting(userDisplayName));
+const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+const [unreadCount, setUnreadCount] = useState(0);
+const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
+
+// Update greeting when user data loads
+useEffect(() => {
+  if (user) {
+    setGreetingData(getGreeting(userDisplayName));
+  }
+}, [user, userDisplayName]);
+
+// Fetch unread notifications count
+useEffect(() => {
+  if (!userId) return;
+
+  const fetchUnreadCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_read', false);
+
+      if (error) throw error;
+      setUnreadCount(count || 0);
+    } catch (err) {
+      console.error('[Layout] Failed to fetch unread count:', err);
+    }
+  };
+
+  fetchUnreadCount();
+
+  const channel = supabase
+    .channel('unread-count-channel')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${userId}`
+      },
+      () => fetchUnreadCount()
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [userId]);
+
+// Don't render until user is loaded (prevents name flash)
 if (!user) {
   return (
     <div className="min-h-screen bg-[#010112] flex items-center justify-center">
@@ -30,53 +82,6 @@ if (!user) {
     </div>
   );
 }
-  // Update greeting to use user name correctly
-useEffect(() => {
-  setGreetingData(getGreeting(userDisplayName));
-}, [userDisplayName]);
-
-  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    const fetchUnreadCount = async () => {
-      try {
-        const { count, error } = await supabase
-          .from('notifications')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .eq('is_read', false);
-
-        if (error) throw error;
-        setUnreadCount(count || 0);
-      } catch (err) {
-        console.error('[Layout] Failed to fetch unread count:', err);
-      }
-    };
-
-    fetchUnreadCount();
-
-    const channel = supabase
-      .channel('unread-count-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`
-        },
-        () => fetchUnreadCount()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
