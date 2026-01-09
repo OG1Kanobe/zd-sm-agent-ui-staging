@@ -55,9 +55,16 @@ interface DashboardPost {
   cost_breakdown: any;
   animated_version_id: string | null;
   is_animated_version: boolean;
-  form_id: string | null;
-  form_name: string | null;
-  form_url: string | null;
+  form_id?: string;
+  form_url?: string;  // Keep this (it's still in posts_v2)
+  form?: {            // ← Add this
+    id: string;
+    form_name: string;
+    form_title: string;
+    form_url: string;
+    view_count: number;
+    submission_count: number;
+  };
 }
 
 interface CardData {
@@ -207,11 +214,20 @@ const useDashboardData = (userId: string | undefined, filters: FilterState) => {
 
     try {
       let query = supabase
-        .from('posts_v2')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('discard', false)
-        .neq('status', 'In Progress');
+  .from('posts_v2')
+  .select(`
+    *,
+    form:forms!posts_v2_form_id_fkey (
+      id,
+      form_name,
+      form_url,
+      view_count,
+      submission_count
+    )
+  `)
+  .eq('user_id', userId)
+  .eq('discard', false)
+  .neq('status', 'In Progress');
         
       if (filters.fromDate) query = query.gte('created_at', `${filters.fromDate}T00:00:00`);
       if (filters.toDate) query = query.lte('created_at', `${filters.toDate}T23:59:59`);
@@ -939,19 +955,19 @@ setWidth(Math.max(500, Math.min(newWidth, window.innerWidth * 0.8)));
             )}
             
             {/* Lead Form */}
-            <div className="border-t border-gray-700 pt-3">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">LEAD FORM</h4>
-              {currentPost.form_id ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-white">Form: {currentPost.form_name}</p>
-                  <a href={currentPost.form_url || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-[#5ccfa2] hover:text-[#45a881]">View Form →</a>
-                </div>
-              ) : (
-                <button onClick={handleCreateForm} disabled={creatingForm} className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg font-semibold disabled:opacity-50">
-                  {creatingForm ? 'Creating...' : 'Create Lead Form'}
-                </button>
-              )}
-            </div>
+<div className="border-t border-gray-700 pt-3">
+  <h4 className="text-xs font-semibold text-gray-400 mb-2">LEAD FORM</h4>
+  {currentPost.form_id ? (
+    <div className="space-y-2">
+      <p className="text-sm text-white">Form: {currentPost.form?.form_name || 'Unnamed Form'}</p>
+      <a href={currentPost.form?.form_url || currentPost.form_url || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-[#5ccfa2] hover:text-[#45a881]">View Form →</a>
+    </div>
+  ) : (
+    <button onClick={handleCreateForm} disabled={creatingForm} className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg font-semibold disabled:opacity-50">
+      {creatingForm ? 'Creating...' : 'Create Lead Form'}
+    </button>
+  )}
+</div>
           </div>
         </div>
         

@@ -18,14 +18,17 @@ export default async function FormPage({ params }: {
     }
   );
 
-  // Fetch form data server-side
-  const { data: formData, error } = await supabase
-    .from('posts_v2')
-    .select('form_id, form_name, form_title, form_schema')
-    .eq('form_id', formId)
-    .not('form_schema', 'is', null)
-    .limit(1)
-    .single();
+// Fetch form data server-side
+const { data: formData, error } = await supabase
+  .from('forms')
+  .select('id, form_name, form_title, form_schema')
+  .eq('id', formId)
+  .single();
+
+// Increment view count (track analytics)
+if (formData) {
+  await supabase.rpc('increment_form_view', { form_id_param: formId });
+}
 
   if (error || !formData) {
     return (

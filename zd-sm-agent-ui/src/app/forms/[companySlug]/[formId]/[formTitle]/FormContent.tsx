@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { Loader2, CheckCircle } from 'lucide-react';
 
+import { supabase } from '@/lib/supabaseClient';
+
 interface Question {
   id: string;
   type: 'text' | 'email' | 'phone' | 'select' | 'textarea' | 'radio';
@@ -14,7 +16,7 @@ interface Question {
 }
 
 interface FormData {
-  form_id: string;
+  id: string; // Changed from form_id
   form_name: string;
   form_title: string;
   form_schema: {
@@ -122,27 +124,37 @@ export default function FormContent({ formData }: { formData: FormData }) {
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
+  e.preventDefault();
+  setSubmitting(true);
+  setError(null);
 
+  try {
+    // TODO: Submit to API endpoint (will implement Google Sheets integration)
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    console.log('Form submission:', {
+      formId: formData.id,
+      answers
+    });
+
+    // Increment submission count
     try {
-      // TODO: Submit to API endpoint
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Form submission:', {
-        formId: formData.form_id,
-        answers
+      await supabase.rpc('increment_form_submission', { 
+        form_id_param: formData.id 
       });
-
-      setSubmitted(true);
-    } catch (err: any) {
-      console.error('[Form] Submit error:', err);
-      setError(err.message || 'Failed to submit form');
-    } finally {
-      setSubmitting(false);
+    } catch (analyticsErr) {
+      console.error('[Form] Analytics error:', analyticsErr);
+      // Don't block submission if analytics fails
     }
-  };
+
+    setSubmitted(true);
+  } catch (err: any) {
+    console.error('[Form] Submit error:', err);
+    setError(err.message || 'Failed to submit form');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   if (submitted) {
     return (
