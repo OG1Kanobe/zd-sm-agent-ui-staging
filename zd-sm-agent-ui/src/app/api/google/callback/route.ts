@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { supabaseServer } from '@/lib/supabaseServerClient';
 
 /**
  * GET /api/google/callback
  * Handles Google OAuth callback
  */
 export async function GET(request: NextRequest) {
+  // Get base URL from request (works in all environments)
+  const baseUrl = new URL(request.url).origin;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
@@ -19,15 +17,11 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[Google OAuth] Callback error:', error);
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || 'https://zd-sm-agent-ui-staging.vercel.app'}/integrations?error=oauth_denied`
-      );
+      return NextResponse.redirect(`${baseUrl}/integrations?error=oauth_denied`);
     }
 
     if (!code || !state) {
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || 'https://zd-sm-agent-ui-staging.vercel.app'}/integrations?error=missing_params`
-      );
+      return NextResponse.redirect(`${baseUrl}/integrations?error=missing_params`);
     }
 
     const userId = state;
@@ -71,7 +65,7 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(Date.now() + expires_in * 1000);
 
     // Check if user already has Google connected
-    const { data: existingProfile } = await supabase
+    const { data: existingProfile } = await supabaseServer
       .from('user_social_profiles')
       .select('id')
       .eq('client_id', userId)
@@ -79,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     if (existingProfile) {
       // Update existing profile
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseServer
         .from('user_social_profiles')
         .update({
           google_connected: true,
@@ -96,7 +90,7 @@ export async function GET(request: NextRequest) {
       if (updateError) throw updateError;
     } else {
       // Create new profile
-      const { error: insertError } = await supabase
+      const { error: insertError } = await supabaseServer
         .from('user_social_profiles')
         .insert({
           client_id: userId,
@@ -115,13 +109,9 @@ export async function GET(request: NextRequest) {
     console.log(`[Google OAuth] Successfully connected Google account for user ${userId}`);
 
     // Redirect back to integrations page
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'https://zd-sm-agent-ui-staging.vercel.app'}/integrations?success=google_connected`
-    );
+    return NextResponse.redirect(`${baseUrl}/integrations?success=google_connected`);
   } catch (error: any) {
     console.error('[Google OAuth] Callback error:', error);
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'https://zd-sm-agent-ui-staging.vercel.app'}/integrations?error=connection_failed`
-    );
+    return NextResponse.redirect(`${baseUrl}/integrations?error=connection_failed`);
   }
 }
