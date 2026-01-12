@@ -54,6 +54,10 @@ const IntegrationsPage = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Google OAuth state
+const [googleConnected, setGoogleConnected] = useState(false);
+const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+
   // Fetch existing keys
   useEffect(() => {
     const fetchKeys = async () => {
@@ -88,6 +92,51 @@ const IntegrationsPage = () => {
 
     fetchKeys();
   }, [userId]);
+
+// Fetch Google connection status
+useEffect(() => {
+  const fetchGoogleStatus = async () => {
+    if (!userId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('user_social_profiles')
+        .select('google_connected, google_email')
+        .eq('client_id', userId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setGoogleConnected(data.google_connected || false);
+        setGoogleEmail(data.google_email || null);
+      }
+    } catch (err: any) {
+      console.error('Error fetching Google status:', err);
+    }
+  };
+
+  fetchGoogleStatus();
+}, [userId]);
+
+// Handle OAuth redirect
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const success = params.get('success');
+  const errorParam = params.get('error');
+
+  if (success === 'google_connected') {
+    setSaveSuccess(true);
+    setError(null);
+    // Refresh page to update status
+    setTimeout(() => {
+      window.location.replace('/integrations');
+    }, 1000);
+  } else if (errorParam) {
+    setError(`Google connection failed: ${errorParam}`);
+  }
+}, []);
+
 
   const handleSave = async () => {
   if (!userId) return;
@@ -164,8 +213,45 @@ const IntegrationsPage = () => {
 };
 
   const toggleShowKey = (provider: Provider) => {
-    setShowKeys(prev => ({ ...prev, [provider]: !prev[provider] }));
-  };
+  setShowKeys(prev => ({ ...prev, [provider]: !prev[provider] }));
+};
+
+const handleConnectGoogle = () => {
+  if (!userId) return;
+  window.location.href = `/api/google/connect?userId=${userId}`;
+};
+
+const handleDisconnectGoogle = async () => {
+  if (!userId) return;
+  if (!confirm('Disconnect Google account? Form submissions will no longer be saved to Google Sheets.')) return;
+
+  setSaving(true);
+  try {
+    const { error } = await supabase
+      .from('user_social_profiles')
+      .update({
+        google_connected: false,
+        google_user_id: null,
+        google_email: null,
+        google_name: null,
+        google_access_token: null,
+        google_refresh_token: null,
+        google_token_expires_at: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('client_id', userId);
+
+    if (error) throw error;
+
+    setGoogleConnected(false);
+    setGoogleEmail(null);
+    setSaveSuccess(true);
+  } catch (err: any) {
+    setError(err.message || 'Failed to disconnect Google');
+  } finally {
+    setSaving(false);
+  }
+};
 
   if (loading) {
     return (
@@ -331,25 +417,41 @@ const IntegrationsPage = () => {
       </div>
 
       {/* Google OAuth - Admin Only */}
-      {isAdmin && (
-        <div className="bg-[#10101d] rounded-2xl border border-gray-800 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold text-white">Google Services</h3>
-              <p className="text-xs text-gray-400 mt-1">Admin Only</p>
-            </div>
-            <span className="text-xs bg-purple-600 text-white px-2 py-1 rounded-full">ADMIN</span>
-          </div>
+      {/* Google Drive & Sheets */}
+<div className="bg-[#10101d] rounded-2xl border border-gray-800 p-6">
+  <h3 className="text-lg font-semibold text-white mb-4">Google Drive & Sheets</h3>
+  <p className="text-sm text-gray-400 mb-4">
+    Connect your Google account to store form submissions in Google Sheets
+  </p>
 
-          <button
-            onClick={() => alert('Google OAuth setup coming soon!')}
-            className="w-full flex items-center justify-center space-x-3 py-3 rounded-lg border-2 border-gray-700 hover:border-[#5ccfa2] transition-all bg-white/5"
-          >
-            <FcGoogle className="w-6 h-6" />
-            <span className="text-white font-semibold">Connect Google Account</span>
-          </button>
+  {googleConnected ? (
+    <div className="space-y-4">
+      <div className="bg-green-900/20 border border-green-700 rounded-lg p-4 flex items-start space-x-3">
+        <Check className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-green-200">Connected</p>
+          <p className="text-xs text-green-300 mt-1">Account: {googleEmail}</p>
         </div>
-      )}
+      </div>
+
+      <button
+        onClick={handleDisconnectGoogle}
+        disabled={saving}
+        className="w-full py-3 rounded-lg border-2 border-red-700 hover:bg-red-900/20 text-red-400 font-semibold transition-all"
+      >
+        {saving ? 'Disconnecting...' : 'Disconnect Google'}
+      </button>
+    </div>
+  ) : (
+    <button
+      onClick={handleConnectGoogle}
+      className="w-full flex items-center justify-center space-x-3 py-3 rounded-lg border-2 border-gray-700 hover:border-[#5ccfa2] transition-all bg-white/5"
+    >
+      <FcGoogle className="w-6 h-6" />
+      <span className="text-white font-semibold">Connect Google Account</span>
+    </button>
+  )}
+</div>
     </div>
   );
 };
