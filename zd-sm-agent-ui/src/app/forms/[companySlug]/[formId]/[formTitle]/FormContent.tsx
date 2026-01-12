@@ -129,22 +129,20 @@ export default function FormContent({ formData }: { formData: FormData }) {
   setError(null);
 
   try {
-    // TODO: Submit to API endpoint (will implement Google Sheets integration)
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log('Form submission:', {
-      formId: formData.id,
-      answers
+    // Call API to submit to Google Sheets
+    const response = await fetch('/api/forms/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        formId: formData.id,
+        answers: answers
+      })
     });
 
-    // Increment submission count
-    try {
-      await supabase.rpc('increment_form_submission', { 
-        form_id_param: formData.id 
-      });
-    } catch (analyticsErr) {
-      console.error('[Form] Analytics error:', analyticsErr);
-      // Don't block submission if analytics fails
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Submission failed');
     }
 
     setSubmitted(true);
