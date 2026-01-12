@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { Loader2, CheckCircle } from 'lucide-react';
-
 import { supabase } from '@/lib/supabaseClient';
+import Image from 'next/image';
 
 interface Question {
   id: string;
@@ -16,12 +16,18 @@ interface Question {
 }
 
 interface FormData {
-  id: string; // Changed from form_id
+  id: string;
   form_name: string;
   form_title: string;
   form_schema: {
     questions: Question[];
   };
+}
+
+interface FormContentProps {
+  formData: FormData;
+  companyName: string | null;
+  companyLogoUrl: string | null;
 }
 
 const QuestionField: React.FC<{ 
@@ -30,13 +36,13 @@ const QuestionField: React.FC<{
   onChange: (value: string) => void;
 }> = ({ question, value, onChange }) => {
   const Label = () => (
-    <label className="block text-sm font-semibold text-white mb-2">
+    <label className="block text-sm font-semibold text-[#10101d] mb-2">
       {question.label}
-      {question.required && <span className="text-red-400 ml-1">*</span>}
+      {question.required && <span className="text-red-600 ml-1">*</span>}
     </label>
   );
 
-  const inputClasses = "w-full bg-[#10101d] border border-gray-700 text-white rounded-lg px-4 py-3 focus:ring-[#5ccfa2] focus:border-[#5ccfa2] focus:outline-none transition-colors";
+  const inputClasses = "w-full bg-white border border-[#10101d] text-[#10101d] rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#5ccfa2] focus:border-[#5ccfa2] focus:outline-none transition-all placeholder:text-gray-400";
 
   switch (question.type) {
     case 'text':
@@ -88,9 +94,9 @@ const QuestionField: React.FC<{
                   checked={value === opt}
                   onChange={(e) => onChange(e.target.value)}
                   required={question.required}
-                  className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 focus:ring-[#5ccfa2]"
+                  className="w-4 h-4 text-[#5ccfa2] border-[#10101d] focus:ring-[#5ccfa2]"
                 />
-                <span className="text-white text-sm">{opt}</span>
+                <span className="text-[#10101d] text-sm">{opt}</span>
               </label>
             ))}
           </div>
@@ -117,64 +123,87 @@ const QuestionField: React.FC<{
   }
 };
 
-export default function FormContent({ formData }: { formData: FormData }) {
+export default function FormContent({ formData, companyName, companyLogoUrl }: FormContentProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setSubmitting(true);
-  setError(null);
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
 
-  try {
-    // Call API to submit to Google Sheets
-    const response = await fetch('/api/forms/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        formId: formData.id,
-        answers: answers
-      })
-    });
+    try {
+      const response = await fetch('/api/forms/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formId: formData.id,
+          answers: answers
+        })
+      });
 
-    const result = await response.json();
+      const result = await response.json();
 
-    if (!response.ok) {
-      throw new Error(result.error || 'Submission failed');
+      if (!response.ok) {
+        throw new Error(result.error || 'Submission failed');
+      }
+
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error('[Form] Submit error:', err);
+      setError(err.message || 'Failed to submit form');
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitted(true);
-  } catch (err: any) {
-    console.error('[Form] Submit error:', err);
-    setError(err.message || 'Failed to submit form');
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[#010112] flex items-center justify-center p-6">
-        <div className="bg-[#10101d] border border-[#5ccfa2] rounded-xl p-8 max-w-md text-center">
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-6">
+        <div className="bg-white border border-[#5ccfa2] rounded-xl p-8 max-w-md text-center shadow-lg">
           <CheckCircle className="w-16 h-16 text-[#5ccfa2] mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Thank You!</h2>
-          <p className="text-gray-400">Your response has been submitted successfully.</p>
+          <h2 className="text-2xl font-bold text-[#10101d] mb-2">Thank You!</h2>
+          <p className="text-gray-600">Your response has been submitted successfully.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#010112]">
+    <div className="min-h-screen bg-[#FAFAFA]">
       {/* HEADER */}
-      <header className="border-b border-gray-800 p-6 md:p-8">
+      <header className="bg-white p-6 md:p-8">
         <div className="max-w-3xl mx-auto">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+          {/* Company Branding */}
+          {(companyLogoUrl || companyName) && (
+            <div className="flex items-start justify-between mb-6">
+              {/* Logo - Left */}
+              {companyLogoUrl && (
+                <div className="flex-shrink-0">
+                  <img 
+                    src={companyLogoUrl} 
+                    alt="Company Logo" 
+                    className="h-12 w-auto object-contain"
+                  />
+                </div>
+              )}
+              
+              {/* Company Name - Right */}
+              {companyName && (
+                <h2 className="text-xl md:text-2xl font-bold text-[#10101d] text-right">
+                  {companyName}
+                </h2>
+              )}
+            </div>
+          )}
+          
+          {/* Form Title */}
+          <h1 className="text-2xl md:text-3xl font-bold text-[#10101d] mb-2">
             {formData.form_title}
           </h1>
-          <p className="text-gray-400">
+          <p className="text-gray-600 text-sm md:text-base">
             Please fill out this form to help us understand your needs
           </p>
         </div>
@@ -193,15 +222,15 @@ export default function FormContent({ formData }: { formData: FormData }) {
           ))}
 
           {error && (
-            <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
-              <p className="text-sm text-red-300">{error}</p>
+            <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-[#5ccfa2] hover:bg-[#45a881] text-black font-semibold py-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="w-full bg-[#5ccfa2] hover:bg-[#45a881] text-black font-semibold py-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-md"
           >
             {submitting ? (
               <>
@@ -216,10 +245,32 @@ export default function FormContent({ formData }: { formData: FormData }) {
       </main>
 
       {/* FOOTER */}
-      <footer className="border-t border-gray-800 p-6 text-center">
-        <p className="text-gray-500 text-sm">
-          Powered by Architect C
-        </p>
+      <footer className="bg-white border-t border-gray-200 p-6">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          {/* Content Factory Logo - Left */}
+          <a 
+            href="#" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex-shrink-0"
+          >
+            <img 
+              src="https://placeholder-logo-url.com/content-factory.png" 
+              alt="Content Factory" 
+              className="h-8 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity"
+            />
+          </a>
+          
+          {/* Powered by Zenith Digital - Right */}
+          <a 
+            href="https://zenithdigi.co.za" 
+            target="Zenith Digital" 
+            rel="noopener noreferrer"
+            className="text-sm text-gray-600 hover:text-[#5ccfa2] transition-colors"
+          >
+            ⚡by Zenith Digital
+          </a>
+        </div>
       </footer>
     </div>
   );
