@@ -174,7 +174,7 @@ export default function FormContent({ formData, companyName, companyLogoUrl }: F
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
       {/* HEADER */}
-      <header className="bg-white p-6 md:p-8">
+      <header className="bg-[#FAFAFA] p-6 md:p-8">
         <div className="max-w-3xl mx-auto">
           {/* Company Branding */}
           {(companyLogoUrl || companyName) && (
@@ -245,7 +245,7 @@ export default function FormContent({ formData, companyName, companyLogoUrl }: F
       </main>
 
       {/* FOOTER */}
-      <footer className="bg-white border-t border-gray-200 p-6">
+      <footer className="bg-[#FAFAFA] border-t border-gray-200 p-6">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           {/* Content Factory Logo - Left */}
           <a 
