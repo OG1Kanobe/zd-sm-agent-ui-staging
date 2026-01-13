@@ -129,7 +129,7 @@ const SettingsPage = () => {
     const { user, loading: sessionLoading } = useUserSession(); 
     const userId = user?.id;
 
-    const [activeTab, setActiveTab] = useState<'company' | 'branding' | 'integrations'>('company');
+    const [activeTab, setActiveTab] = useState<'company' | 'integrations'>('company');
     const [configs, setConfigs] = useState<Config | null>(null);
     const [socialProfile, setSocialProfile] = useState<SocialProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -376,18 +376,7 @@ const SettingsPage = () => {
                     }`}
                 >
                     <Briefcase className="w-4 h-4 inline mr-2" />
-                    Company Info
-                </button>
-                <button
-                    onClick={() => setActiveTab('branding')}
-                    className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
-                        activeTab === 'branding' 
-                            ? 'bg-[#5ccfa2] text-black' 
-                            : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                    }`}
-                >
-                    <Palette className="w-4 h-4 inline mr-2" />
-                    Branding
+                    Company & Branding
                 </button>
                 <button
                     onClick={() => setActiveTab('integrations')}
@@ -397,188 +386,197 @@ const SettingsPage = () => {
                             : 'text-gray-400 hover:text-white hover:bg-gray-800'
                     }`}
                 >
-                    <Key className="w-4 h-4 inline mr-2" />
-                    Integrations
+                    <LinkIcon className="w-4 h-4 inline mr-2" />
+                    Connections
                 </button>
             </div>
 
             <form onSubmit={handleSave} className="space-y-6">
-                {/* TAB 1: COMPANY INFO */}
+                {/* TAB 1: COMPANY & BRANDING */}
                 {activeTab === 'company' && (
                     <motion.div 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-[#10101d] p-8 rounded-xl shadow-2xl border border-gray-800 space-y-6"
                     >
+                        {/* COMPANY INFO SECTION */}
                         <div>
-                            <label htmlFor="company_name" className="text-sm text-gray-400 flex items-center mb-2">
-                                <Briefcase className="w-4 h-4 mr-2 text-[#5ccfa2]" /> 
-                                Company Name <span className="text-red-400 ml-1">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                id="company_name"
-                                name="company_name"
-                                value={configs.company_name}
-                                onChange={handleChange}
-                                placeholder="e.g., Zenith Digital Solutions"
-                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                            />
-                        </div>
+                            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                                <Briefcase className="w-5 h-5 mr-2 text-[#5ccfa2]" />
+                                Company Information
+                            </h3>
 
-                        <div>
-                            <label htmlFor="company_website" className="text-sm text-gray-400 flex items-center mb-2">
-                                <Globe className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Company Website
-                            </label>
-                            <input
-                                type="url"
-                                id="company_website"
-                                name="company_website"
-                                value={configs.company_website}
-                                onChange={handleChange}
-                                placeholder="e.g., https://zenithdigital.com"
-                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="company_description" className="text-sm text-gray-400 flex items-center mb-2">
-                                <FileText className="w-4 h-4 mr-2 text-[#5ccfa2]" /> 
-                                Company Description <span className="text-red-400 ml-1">*</span>
-                            </label>
-                            <textarea
-                                id="company_description"
-                                name="company_description"
-                                rows={4}
-                                value={configs.company_description}
-                                onChange={handleChange}
-                                placeholder="Describe your company, what you do, your mission, and what makes you unique..."
-                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="company_industry" className="text-sm text-gray-400 flex items-center mb-2">
-                                <Briefcase className="w-4 h-4 mr-2 text-[#5ccfa2]" /> 
-                                Industry <span className="text-red-400 ml-1">*</span>
-                            </label>
-                            <select
-                                id="company_industry"
-                                value={selectedIndustry}
-                                onChange={(e) => {
-                                    setSelectedIndustry(e.target.value);
-                                    if (e.target.value !== 'Other') {
-                                        setCustomIndustry('');
-                                    }
-                                }}
-                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                            >
-                                <option value="">-- Select Industry --</option>
-                                {INDUSTRIES.map(ind => (
-                                    <option key={ind} value={ind}>{ind}</option>
-                                ))}
-                                <option value="Other">Other</option>
-                            </select>
-
-                            {selectedIndustry === 'Other' && (
-                                <input
-                                    type="text"
-                                    value={customIndustry}
-                                    onChange={(e) => setCustomIndustry(e.target.value)}
-                                    placeholder="Please specify your industry"
-                                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] mt-3"
-                                />
-                            )}
-                        </div>
-
-                        <div>
-                            <label htmlFor="target_audience" className="text-sm text-gray-400 flex items-center mb-2">
-                                <Target className="w-4 h-4 mr-2 text-[#5ccfa2]" /> 
-                                Target Audience <span className="text-red-400 ml-1">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                id="target_audience"
-                                name="target_audience"
-                                value={configs.target_audience}
-                                onChange={handleChange}
-                                placeholder="e.g., Young professionals in tech"
-                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                            />
-                        </div>
-                    </motion.div>
-                )}
-
-                {/* TAB 2: BRANDING */}
-                {activeTab === 'branding' && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-[#10101d] p-8 rounded-xl shadow-2xl border border-gray-800 space-y-6"
-                    >
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Company Logo</label>
-                                <div 
-                                    className="w-full h-32 border-2 border-dashed border-gray-700 rounded-lg flex flex-col justify-center items-center cursor-pointer hover:border-[#5ccfa2] transition-colors relative"
-                                    onClick={() => document.getElementById('logo-upload-input')?.click()}
-                                >
-                                    <input 
-                                        type="file" 
-                                        id="logo-upload-input" 
-                                        accept="image/*" 
-                                        className="hidden" 
-                                        onChange={handleLogoSelect} 
+                            <div className="space-y-4">
+                                <div>
+                                    <label htmlFor="company_name" className="text-sm text-gray-400 flex items-center mb-2">
+                                        <Briefcase className="w-4 h-4 mr-2 text-[#5ccfa2]" /> 
+                                        Company Name <span className="text-red-400 ml-1">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="company_name"
+                                        name="company_name"
+                                        value={configs.company_name}
+                                        onChange={handleChange}
+                                        placeholder="e.g., Zenith Digital Solutions"
+                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
                                     />
-                                    {(logoFile || configs.logo_url) ? (
-                                        <>
-                                            <img 
-                                                src={logoFile ? URL.createObjectURL(logoFile) : configs.logo_url} 
-                                                alt="Logo Preview" 
-                                                className="h-full w-full object-contain p-2 rounded-lg"
-                                            />
-                                            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                                <Upload className="w-6 h-6 text-white" />
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Upload className="w-6 h-6 text-gray-500" />
-                                            <p className="text-xs text-gray-500 mt-1">Click to upload</p>
-                                        </>
+                                </div>
+
+                                <div>
+                                    <label htmlFor="company_website" className="text-sm text-gray-400 flex items-center mb-2">
+                                        <Globe className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Company Website
+                                    </label>
+                                    <input
+                                        type="url"
+                                        id="company_website"
+                                        name="company_website"
+                                        value={configs.company_website}
+                                        onChange={handleChange}
+                                        placeholder="e.g., https://zenithdigital.com"
+                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label htmlFor="company_description" className="text-sm text-gray-400 flex items-center mb-2">
+                                        <FileText className="w-4 h-4 mr-2 text-[#5ccfa2]" /> 
+                                        Company Description <span className="text-red-400 ml-1">*</span>
+                                    </label>
+                                    <textarea
+                                        id="company_description"
+                                        name="company_description"
+                                        rows={4}
+                                        value={configs.company_description}
+                                        onChange={handleChange}
+                                        placeholder="Describe your company, what you do, your mission, and what makes you unique..."
+                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label htmlFor="company_industry" className="text-sm text-gray-400 flex items-center mb-2">
+                                        <Briefcase className="w-4 h-4 mr-2 text-[#5ccfa2]" /> 
+                                        Industry <span className="text-red-400 ml-1">*</span>
+                                    </label>
+                                    <select
+                                        id="company_industry"
+                                        value={selectedIndustry}
+                                        onChange={(e) => {
+                                            setSelectedIndustry(e.target.value);
+                                            if (e.target.value !== 'Other') {
+                                                setCustomIndustry('');
+                                            }
+                                        }}
+                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                    >
+                                        <option value="">-- Select Industry --</option>
+                                        {INDUSTRIES.map(ind => (
+                                            <option key={ind} value={ind}>{ind}</option>
+                                        ))}
+                                        <option value="Other">Other</option>
+                                    </select>
+
+                                    {selectedIndustry === 'Other' && (
+                                        <input
+                                            type="text"
+                                            value={customIndustry}
+                                            onChange={(e) => setCustomIndustry(e.target.value)}
+                                            placeholder="Please specify your industry"
+                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] mt-3"
+                                        />
                                     )}
                                 </div>
-                            </div>
 
-                            <MultiSelectDropdown
-                                label="Brand Tone"
-                                options={BRAND_TONES}
-                                selected={configs.brand_tone}
-                                onChange={(s) => setConfigs({ ...configs, brand_tone: s })}
-                            />
+                                <div>
+                                    <label htmlFor="target_audience" className="text-sm text-gray-400 flex items-center mb-2">
+                                        <Target className="w-4 h-4 mr-2 text-[#5ccfa2]" /> 
+                                        Target Audience <span className="text-red-400 ml-1">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="target_audience"
+                                        name="target_audience"
+                                        value={configs.target_audience}
+                                        onChange={handleChange}
+                                        placeholder="e.g., Young professionals in tech"
+                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <ColorPicker 
-                                label="Primary Color"
-                                color={configs.primary_color}
-                                onChange={(c) => setConfigs({ ...configs, primary_color: c })}
-                            />
-                            <ColorPicker 
-                                label="Secondary Color"
-                                color={configs.secondary_color}
-                                onChange={(c) => setConfigs({ ...configs, secondary_color: c })}
-                            />
-                            <ColorPicker 
-                                label="Accent Color"
-                                color={configs.accent_color}
-                                onChange={(c) => setConfigs({ ...configs, accent_color: c })}
-                            />
+                        {/* BRANDING SECTION */}
+                        <div className="border-t border-gray-700 pt-6">
+                            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                                <Palette className="w-5 h-5 mr-2 text-[#5ccfa2]" />
+                                Visual Branding
+                            </h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start mb-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-400 mb-2">Company Logo</label>
+                                    <div 
+                                        className="w-full h-32 border-2 border-dashed border-gray-700 rounded-lg flex flex-col justify-center items-center cursor-pointer hover:border-[#5ccfa2] transition-colors relative"
+                                        onClick={() => document.getElementById('logo-upload-input')?.click()}
+                                    >
+                                        <input 
+                                            type="file" 
+                                            id="logo-upload-input" 
+                                            accept="image/*" 
+                                            className="hidden" 
+                                            onChange={handleLogoSelect} 
+                                        />
+                                        {(logoFile || configs.logo_url) ? (
+                                            <>
+                                                <img 
+                                                    src={logoFile ? URL.createObjectURL(logoFile) : configs.logo_url} 
+                                                    alt="Logo Preview" 
+                                                    className="h-full w-full object-contain p-2 rounded-lg"
+                                                />
+                                                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                                    <Upload className="w-6 h-6 text-white" />
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Upload className="w-6 h-6 text-gray-500" />
+                                                <p className="text-xs text-gray-500 mt-1">Click to upload</p>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <MultiSelectDropdown
+                                    label="Brand Tone"
+                                    options={BRAND_TONES}
+                                    selected={configs.brand_tone}
+                                    onChange={(s) => setConfigs({ ...configs, brand_tone: s })}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <ColorPicker 
+                                    label="Primary Color"
+                                    color={configs.primary_color}
+                                    onChange={(c) => setConfigs({ ...configs, primary_color: c })}
+                                />
+                                <ColorPicker 
+                                    label="Secondary Color"
+                                    color={configs.secondary_color}
+                                    onChange={(c) => setConfigs({ ...configs, secondary_color: c })}
+                                />
+                                <ColorPicker 
+                                    label="Accent Color"
+                                    color={configs.accent_color}
+                                    onChange={(c) => setConfigs({ ...configs, accent_color: c })}
+                                />
+                            </div>
                         </div>
                     </motion.div>
                 )}
 
-                {/* TAB 3: INTEGRATIONS */}
+                {/* TAB 2: CONNECTIONS */}
                 {activeTab === 'integrations' && (
                     <motion.div 
                         initial={{ opacity: 0, y: 20 }}
