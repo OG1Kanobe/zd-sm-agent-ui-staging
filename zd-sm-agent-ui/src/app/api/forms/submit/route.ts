@@ -77,10 +77,51 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to save to Google Sheets');
     }
 
+    const sheetResponseData = await sheetResponse.json();
+    
+    // Extract row number from response
+    // Response format: "Sheet1!A5:G5" means row 5
+    const updatedRange = sheetResponseData.updates?.updatedRange || '';
+    const rowNumber = updatedRange.match(/\d+$/)?.[0];
+
     // Increment submission count
     await supabaseServer.rpc('increment_form_submission', {
       form_id_param: formId
     });
+
+    // Check if user has lead qualification enabled
+    const { data: clientConfig } = await supabaseServer
+      .from('client_configs')
+      .select('lead_qualification_enabled')
+      .eq('client_id', form.user_id)
+      .single();
+
+    // Trigger AI lead qualification if enabled
+    if (clientConfig?.lead_qualification_enabled && rowNumber) {
+      const webhookUrl = process.env.N8N_LEAD_QUALIFICATION_WEBHOOK;
+      
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              formId: form.id,
+              userId: form.user_id,
+              sheetId: form.sheet_id,
+              rowNumber: parseInt(rowNumber),
+              questionCount: questions.length,
+              googleAccessToken: accessToken,
+              submittedAt: timestamp
+            })
+          });
+          console.log(`[Form Submit] Lead qualification triggered for row ${rowNumber}`);
+        } catch (webhookError) {
+          console.error('[Form Submit] Lead qualification webhook failed:', webhookError);
+          // Don't fail the submission if webhook fails
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
