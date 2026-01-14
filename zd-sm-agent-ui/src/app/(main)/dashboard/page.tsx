@@ -784,7 +784,7 @@ setWidth(Math.max(500, Math.min(newWidth, window.innerWidth * 0.8)));
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      alert(`Form created: ${data.formName}`);
+      alert(`Your form is being generated`);
       onUpdate();
     } catch (err: any) {
       alert(`Failed: ${err.message}`);
