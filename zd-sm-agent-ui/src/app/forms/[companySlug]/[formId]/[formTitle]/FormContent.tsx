@@ -28,6 +28,7 @@ interface FormContentProps {
   formData: FormData;
   companyName: string | null;
   companyLogoUrl: string | null;
+  privacyPolicyUrl: string | null;
 }
 
 const QuestionField: React.FC<{ 
@@ -123,7 +124,7 @@ const QuestionField: React.FC<{
   }
 };
 
-export default function FormContent({ formData, companyName, companyLogoUrl }: FormContentProps) {
+export default function FormContent({ formData, companyName, companyLogoUrl, privacyPolicyUrl }: FormContentProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -245,33 +246,63 @@ export default function FormContent({ formData, companyName, companyLogoUrl }: F
       </main>
 
       {/* FOOTER */}
-      <footer className="bg-[#FAFAFA] border-t border-gray-200 p-6">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          {/* Content Factory Logo - Left */}
-          <a 
-            href="#" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex-shrink-0"
-          >
-            <img 
-              src="https://placeholder-logo-url.com/content-factory.png" 
-              alt="Content Factory" 
-              className="h-8 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity"
-            />
-          </a>
-          
-          {/* Powered by Zenith Digital - Right */}
-          <a 
-            href="https://zenithdigi.co.za" 
-            target="Zenith Digital" 
-            rel="noopener noreferrer"
-            className="text-sm text-gray-600 hover:text-[#5ccfa2] transition-colors"
-          >
-            ⚡by Zenith Digital
-          </a>
-        </div>
-      </footer>
+<footer className="bg-[#FAFAFA] border-t border-gray-200 p-6">
+  <div className="max-w-3xl mx-auto space-y-4">
+    {/* Privacy Disclaimer */}
+    <div className="text-center text-sm text-gray-600">
+      <p>
+        By submitting this form, you consent to the collection and processing of your personal information.
+        {privacyPolicyUrl && companyName && (
+          <>
+            {' '}
+            <a 
+              href={privacyPolicyUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[#5ccfa2] hover:text-[#45a881] underline transition-colors"
+            >
+              Learn more about how {companyName} uses your information.
+            </a>
+          </>
+        )}
+      </p>
+    </div>
+
+    {/* Content Factory Disclaimer */}
+    <div className="text-center text-xs text-gray-500 border-t border-gray-200 pt-4">
+      <p className="mb-2">
+        This form is powered by Content Factory. Data is sent directly to the form owner's Google Drive and is not stored by Content Factory.
+      </p>
+    </div>
+
+    {/* Branding */}
+    <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+      {/* Content Factory Logo - Left */}
+      <a 
+        href="#" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="flex-shrink-0"
+      >
+        <img 
+          src="https://placeholder-logo-url.com/content-factory.png" 
+          alt="Content Factory" 
+          className="h-8 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity"
+        />
+      </a>
+      
+      {/* Powered by Zenith Digital - Right */}
+      <a 
+        href="https://zenithdigi.co.za" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-sm text-gray-600 hover:text-[#5ccfa2] transition-colors"
+      >
+        ⚡by Zenith Digital
+      </a>
+    </div>
+  </div>
+</footer>
     </div>
   );
 }

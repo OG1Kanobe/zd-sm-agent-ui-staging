@@ -22,6 +22,7 @@ type Config = {
     brand_tone: string[];
     target_audience: string;
     company_industry: string;
+    privacy_policy_url: string;
 };
 
 type SocialProfile = {
@@ -173,6 +174,7 @@ const SettingsPage = () => {
                     brand_tone: ensureArray(clientData.brand_tone),
                     target_audience: clientData.target_audience || '',
                     company_industry: clientData.company_industry || '',
+                    privacy_policy_url: clientData.privacy_policy_url || '',
                 }); 
 
                 // Set industry state
@@ -197,6 +199,7 @@ const SettingsPage = () => {
                     accent_color: '#10B981',
                     brand_tone: [], 
                     company_industry: '',
+                    privacy_policy_url: '',
                 });
             }
 
@@ -287,6 +290,7 @@ const SettingsPage = () => {
                 brand_tone: configs.brand_tone || null,
                 target_audience: configs.target_audience || null,
                 company_industry: selectedIndustry === 'Other' ? customIndustry : selectedIndustry || null,
+                privacy_policy_url: configs.privacy_policy_url || null,
             };
             
             const { error: configError } = await supabase
@@ -503,6 +507,26 @@ const SettingsPage = () => {
                                         className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
                                     />
                                 </div>
+
+                                    <div>
+                                 <label htmlFor="privacy_policy_url" className="text-sm text-gray-400 flex items-center mb-2">
+                                <FileText className="w-4 h-4 mr-2 text-[#5ccfa2]" /> 
+                                Privacy Policy URL (Optional)
+                                </label>
+                                <input
+                                type="url"
+                                id="privacy_policy_url"
+                                name="privacy_policy_url"
+                                value={configs.privacy_policy_url}
+                                onChange={handleChange}
+                                placeholder="e.g., https://yourcompany.com/privacy"
+                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                This link will be shown in your lead forms privacy disclaimer
+                            </p>
+                            </div>
+
                             </div>
                         </div>
 

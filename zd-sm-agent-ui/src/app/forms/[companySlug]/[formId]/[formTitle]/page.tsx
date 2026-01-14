@@ -43,19 +43,20 @@ export default async function FormPage({ params }: {
 
   // Fetch company branding
   const { data: companyData } = await supabase
-    .from('client_configs')
-    .select('company_name, logo_url')
-    .eq('client_id', formData.user_id)
-    .single();
+  .from('client_configs')
+  .select('company_name, logo_url, privacy_policy_url')
+  .eq('client_id', formData.user_id)
+  .single();
 
   // Increment view count (track analytics)
   await supabase.rpc('increment_form_view', { form_id_param: formId });
 
   return (
-    <FormContent 
-      formData={formData}
-      companyName={companyData?.company_name || null}
-      companyLogoUrl={companyData?.logo_url || null}
-    />
-  );
+  <FormContent 
+    formData={formData}
+    companyName={companyData?.company_name || null}
+    companyLogoUrl={companyData?.logo_url || null}
+    privacyPolicyUrl={companyData?.privacy_policy_url || null}
+  />
+);
 }

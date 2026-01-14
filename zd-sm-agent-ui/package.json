@@ -28,6 +28,7 @@
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.17",
     "@types/luxon": "^3.7.1",
     "@types/node": "^20",

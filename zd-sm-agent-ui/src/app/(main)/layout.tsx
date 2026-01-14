@@ -133,48 +133,39 @@ if (!user) {
     by Zenith Digital
   </p>
 </div>
-                <nav className="space-y-2">
-                  <a
-                    href="/dashboard"
-                    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
-                      pathname === '/dashboard' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
-                    <Home className="w-5 h-5 mr-3" />
-                    Dashboard
-                  </a>
-                  
-                  <a
-                    href="/configs"
-                    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
-                      pathname === '/configs' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
-                    <Settings className="w-5 h-5 mr-3" />
-                    Agent Configs
-                  </a>
-
-                  <a
-                    href="/publishing"
-                    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
-                      pathname === '/publishing' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
-                    }`}
-                  >
-                    <Calendar className="w-5 h-5 mr-3" />
-                    Publishing
-                  </a>
-
-                   {/* NEW: INTEGRATIONS LINK */}
+                
+<nav className="space-y-2">
   
-   <a href="/integrations"
+    <a href="/dashboard"
     className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
-      pathname === '/integrations' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
+      pathname === '/dashboard' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
     }`}
   >
-    <Key className="w-5 h-5 mr-3" />
-    Integrations
+    <Home className="w-5 h-5 mr-3" />
+    Dashboard
   </a>
-                </nav>
+
+  
+    <a href="/publishing"
+    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
+      pathname === '/publishing' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
+    }`}
+  >
+    <Zap className="w-5 h-5 mr-3" />
+    Content Studio
+  </a>
+
+  
+    <a href="/settings"
+    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
+      pathname === '/settings' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
+    }`}
+  >
+    <Settings className="w-5 h-5 mr-3" />
+    Settings
+  </a>
+</nav>
+
               </div>
 
               <div className="pt-4 border-t border-gray-700">
