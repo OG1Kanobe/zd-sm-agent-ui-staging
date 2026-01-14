@@ -255,7 +255,7 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
           href={privacyPolicyUrl} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="text-[#5ccfa2] hover:text-[#45a881] underline transition-colors"
+          className="text-[#10101d] hover:text-[#010112] underline transition-colors"
         >
           Learn more about how {companyName} uses your information.
         </a>
@@ -282,7 +282,7 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
         Create content and forms like this with AI.{' '}
         <a 
           href="#" 
-          className="text-[#5ccfa2] hover:text-[#45a881] font-semibold underline transition-colors"
+          className="text-[#10101d] hover:text-[#010112] font-semibold underline transition-colors"
         >
           Join the Content Factory waitlist
         </a>
@@ -310,7 +310,7 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
         href="https://zenithdigi.co.za" 
         target="_blank" 
         rel="noopener noreferrer"
-        className="text-sm text-gray-600 hover:text-[#5ccfa2] transition-colors"
+        className="text-sm text-gray-600 hover:text-[#010112] transition-colors"
       >
         ⚡by Zenith Digital
       </a>

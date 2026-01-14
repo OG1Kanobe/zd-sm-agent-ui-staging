@@ -265,60 +265,77 @@ const SettingsPage = () => {
         return publicUrlData.publicUrl;
     };
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!configs || !userId) return;
-        
-        setIsSaving(true);
-        setSaveStatus('idle');
-        
-        try {
-            const newLogoUrl = await uploadLogo();
-            if (logoFile && !newLogoUrl) {
-                throw new Error("Logo upload failed.");
-            }
-            
-            const dataToSave = {
-                client_id: userId,
-                company_name: configs.company_name || null,
-                company_website: configs.company_website || null,
-                company_description: configs.company_description || null,
-                logo_url: newLogoUrl || configs.logo_url || null,
-                primary_color: configs.primary_color,
-                secondary_color: configs.secondary_color,
-                accent_color: configs.accent_color,
-                brand_tone: configs.brand_tone || null,
-                target_audience: configs.target_audience || null,
-                company_industry: selectedIndustry === 'Other' ? customIndustry : selectedIndustry || null,
-                privacy_policy_url: configs.privacy_policy_url || null,
-            };
-            
-            const { error: configError } = await supabase
-                .from('client_configs')
-                .upsert(dataToSave, { onConflict: 'client_id' });
-
-            if (configError) throw configError;
-
-            // Save API keys
-            const { error: keysError } = await supabase
-                .from('api_keys')
-                .upsert({
-                    user_id: userId,
-                    openai_key: openaiKey || null,
-                    gemini_key: geminiKey || null
-                }, { onConflict: 'user_id' });
-
-            if (keysError) throw keysError;
-
-            setSaveStatus('saved');
-        } catch (e) {
-            console.error("Configuration save failed:", e);
-            setSaveStatus('failed');
-        } finally {
-            setIsSaving(false);
-            setTimeout(() => setSaveStatus('idle'), 3000); 
-        }
+    // Save Company & Branding settings
+const handleSaveSettings = async () => {
+  if (!configs || !userId) return;
+  
+  setIsSaving(true);
+  setSaveStatus('idle');
+  
+  try {
+    const newLogoUrl = await uploadLogo();
+    if (logoFile && !newLogoUrl) {
+      throw new Error("Logo upload failed.");
+    }
+    
+    const dataToSave = {
+      client_id: userId,
+      company_name: configs.company_name || null,
+      company_website: configs.company_website || null,
+      company_description: configs.company_description || null,
+      logo_url: newLogoUrl || configs.logo_url || null,
+      primary_color: configs.primary_color,
+      secondary_color: configs.secondary_color,
+      accent_color: configs.accent_color,
+      brand_tone: configs.brand_tone || null,
+      target_audience: configs.target_audience || null,
+      company_industry: selectedIndustry === 'Other' ? customIndustry : selectedIndustry || null,
+      privacy_policy_url: configs.privacy_policy_url || null,
     };
+    
+    const { error: configError } = await supabase
+      .from('client_configs')
+      .upsert(dataToSave, { onConflict: 'client_id' });
+
+    if (configError) throw configError;
+
+    setSaveStatus('saved');
+  } catch (e) {
+    console.error("Settings save failed:", e);
+    setSaveStatus('failed');
+  } finally {
+    setIsSaving(false);
+    setTimeout(() => setSaveStatus('idle'), 3000); 
+  }
+};
+
+// Save Connections (API keys)
+const handleSaveConnections = async () => {
+  if (!userId) return;
+  
+  setIsSaving(true);
+  setSaveStatus('idle');
+  
+  try {
+    const { error: keysError } = await supabase
+      .from('user_api_keys')
+      .upsert({
+        user_id: userId,
+        openai_key: openaiKey || null,
+        gemini_key: geminiKey || null
+      }, { onConflict: 'user_id' });
+
+    if (keysError) throw keysError;
+
+    setSaveStatus('saved');
+  } catch (e) {
+    console.error("Connections save failed:", e);
+    setSaveStatus('failed');
+  } finally {
+    setIsSaving(false);
+    setTimeout(() => setSaveStatus('idle'), 3000); 
+  }
+};
 
     const handleConnectGoogle = () => {
         if (!userId) return;
@@ -395,7 +412,7 @@ const SettingsPage = () => {
                 </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-6">
+            <div className="space-y-6">
                 {/* TAB 1: COMPANY & BRANDING */}
                 {activeTab === 'company' && (
                     <motion.div 
@@ -678,35 +695,59 @@ const SettingsPage = () => {
                     </motion.div>
                 )}
 
-                {/* SAVE BUTTON */}
-                <div className="flex justify-between items-center pt-4 border-t border-gray-800">
-                    <button
-                        type="submit"
-                        disabled={isSaving}
-                        className={`px-8 py-3 rounded-xl font-bold transition-all flex items-center ${
-                            isSaving ? 'bg-gray-500 text-gray-300 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'
-                        }`}
-                    >
-                        {isSaving ? (
-                            <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                        ) : saveStatus === 'saved' ? (
-                            <CheckCircle className="w-5 h-5 mr-3" />
-                        ) : saveStatus === 'failed' ? (
-                            <AlertTriangle className="w-5 h-5 mr-3" />
-                        ) : (
-                            <Save className="w-5 h-5 mr-3" />
-                        )}
-                        {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'failed' ? 'Failed!' : 'Save Settings'}
-                    </button>
+                {/* SAVE BUTTONS */}
+{activeTab === 'company' && (
+  <div className="flex justify-between items-center pt-4 border-t border-gray-800">
+    <button
+      onClick={handleSaveSettings}
+      disabled={isSaving}
+      className={`px-8 py-3 rounded-xl font-bold transition-all flex items-center ${
+        isSaving ? 'bg-gray-500 text-gray-300 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'
+      }`}
+    >
+      {isSaving ? (
+        <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+      ) : saveStatus === 'saved' ? (
+        <CheckCircle className="w-5 h-5 mr-3" />
+      ) : saveStatus === 'failed' ? (
+        <AlertTriangle className="w-5 h-5 mr-3" />
+      ) : (
+        <Save className="w-5 h-5 mr-3" />
+      )}
+      {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'failed' ? 'Failed!' : 'Save Settings'}
+    </button>
 
-                    {activeTab === 'company' && (
-                        <p className="text-xs text-gray-500">
-                            <span className="text-red-400">*</span> Required for lead form creation
-                        </p>
-                    )}
-                </div>
-            </form>
-        </div>
+    <p className="text-xs text-gray-500">
+      <span className="text-red-400">*</span> Required for lead form creation
+    </p>
+  </div>
+)}
+
+{activeTab === 'integrations' && (
+  <div className="flex justify-end items-center pt-4 border-t border-gray-800">
+    <button
+      onClick={handleSaveConnections}
+      disabled={isSaving}
+      className={`px-8 py-3 rounded-xl font-bold transition-all flex items-center ${
+        isSaving ? 'bg-gray-500 text-gray-300 cursor-not-allowed' : 'bg-[#5ccfa2] text-black hover:bg-[#45a881]'
+      }`}
+    >
+      {isSaving ? (
+        <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+      ) : saveStatus === 'saved' ? (
+        <CheckCircle className="w-5 h-5 mr-3" />
+      ) : saveStatus === 'failed' ? (
+        <AlertTriangle className="w-5 h-5 mr-3" />
+      ) : (
+        <Save className="w-5 h-5 mr-3" />
+      )}
+      {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'failed' ? 'Failed!' : 'Save Connections'}
+    </button>
+  </div>
+)}
+            </div>
+            </div>
+        
     );
 };
 

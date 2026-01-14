@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import FormContent from './FormContent';
 
 export default async function FormPage({ params }: { 
-  params: Promise<{ companySlug: string; formId: string; formTitle: string }> 
+  params: Promise<{ companySlug: string; formId: string }> 
 }) {
   const { formId } = await params;
 
