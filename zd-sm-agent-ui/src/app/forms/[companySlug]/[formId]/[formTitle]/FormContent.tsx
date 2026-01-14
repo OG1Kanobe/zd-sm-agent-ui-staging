@@ -243,35 +243,49 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
             )}
           </button>
         </form>
-      </main>
 
-      {/* FOOTER */}
-<footer className="bg-[#FAFAFA] border-t border-gray-200 p-6">
+      {/* USER PRIVACY DISCLAIMER (Outside footer, under submit button) */}
+<div className="text-center text-sm text-gray-600 mt-4">
+  <p>
+    By submitting this form, you consent to the collection and processing of your personal information.
+    {privacyPolicyUrl && companyName && (
+      <>
+        {' '}
+        <a 
+          href={privacyPolicyUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-[#5ccfa2] hover:text-[#45a881] underline transition-colors"
+        >
+          Learn more about how {companyName} uses your information.
+        </a>
+      </>
+    )}
+  </p>
+</div>
+</main>
+
+{/* FOOTER */}
+<footer className="bg-white border-t border-gray-200 p-6 mt-8">
   <div className="max-w-3xl mx-auto space-y-4">
-    {/* Privacy Disclaimer */}
-    <div className="text-center text-sm text-gray-600">
+    {/* Zenith Digital Disclaimer */}
+    <div className="text-center text-xs text-gray-500">
       <p>
-        By submitting this form, you consent to the collection and processing of your personal information.
-        {privacyPolicyUrl && companyName && (
-          <>
-            {' '}
-            <a 
-              href={privacyPolicyUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[#5ccfa2] hover:text-[#45a881] underline transition-colors"
-            >
-              Learn more about how {companyName} uses your information.
-            </a>
-          </>
-        )}
+        This content is created by the owner of the form. The data you submit will be sent to the form owner. 
+        Zenith Digital is not responsible for the privacy or security practices of its customers, including those of this form owner.
       </p>
     </div>
 
-    {/* Content Factory Disclaimer */}
-    <div className="text-center text-xs text-gray-500 border-t border-gray-200 pt-4">
-      <p className="mb-2">
-        This form is powered by Content Factory. Data is sent directly to the form owner's Google Drive and is not stored by Content Factory.
+    {/* Marketing CTA */}
+    <div className="text-center text-sm border-t border-gray-200 pt-4">
+      <p className="text-gray-600">
+        Create content and forms like this with AI.{' '}
+        <a 
+          href="#" 
+          className="text-[#5ccfa2] hover:text-[#45a881] font-semibold underline transition-colors"
+        >
+          Join the Content Factory waitlist
+        </a>
       </p>
     </div>
 
