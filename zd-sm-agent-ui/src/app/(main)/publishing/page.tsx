@@ -967,6 +967,21 @@ const ContentStudioPage = () => {
                                         />
                                     </div>
 
+                                    {/* Web Search Checkbox - Only when reference is 'none' */}
+                                        {socialReferenceType === 'none' && (
+                                            <label className="flex items-center space-x-3 cursor-pointer -mt-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={socialWebSearch}
+                                                    onChange={(e) => setSocialWebSearch(e.target.checked)}
+                                                    className="w-5 h-5 rounded border-2 border-gray-600 bg-[#010112] text-[#5ccfa2] focus:ring-2 focus:ring-[#5ccfa2] focus:ring-offset-0 checked:bg-[#5ccfa2] checked:border-[#5ccfa2] transition-all cursor-pointer"
+                                                />
+                                                <span className="text-sm text-gray-400">
+                                                    Enable web search
+                                                </span>
+                                            </label>
+                                        )}
+
                                     {/* Platform Selection */}
                                     <div className="flex flex-col space-y-3">
                                         <label className="text-sm text-gray-400 font-semibold">
@@ -1036,21 +1051,7 @@ const ContentStudioPage = () => {
                                             </select>
                                         </div>
 
-                                        {/* Web Search Checkbox - Only when reference is 'none' */}
-                                        {socialReferenceType === 'none' && (
-                                            <div className="flex items-center space-x-2 p-3 bg-[#010112] rounded-lg border border-gray-700">
-                                                <input
-                                                    type="checkbox"
-                                                    id="social-web-search"
-                                                    checked={socialWebSearch}
-                                                    onChange={(e) => setSocialWebSearch(e.target.checked)}
-                                                    className="w-4 h-4 text-[#5ccfa2] bg-[#010112] border-gray-700 rounded focus:ring-[#5ccfa2]"
-                                                />
-                                                <label htmlFor="social-web-search" className="text-sm text-gray-300 cursor-pointer">
-                                                    Enable web search
-                                                </label>
-                                            </div>
-                                        )}
+                                    
 
                                     {/* Conditional Reference Fields */}
                                     {socialReferenceType === 'url' && (
