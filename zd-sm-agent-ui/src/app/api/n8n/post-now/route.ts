@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
       generate_IG,
       generate_LI,
 
+      web_search,
+
       organic,
       paid,
       category,
@@ -159,6 +161,9 @@ export async function POST(req: NextRequest) {
       organic: organic || false,
       paid: paid || false,
       contentType: organic ? 'organic' : 'paid',
+
+      //web search enabled or not
+      web_search: web_search || false,
       
       // Metadata
       category: category || 'none',
