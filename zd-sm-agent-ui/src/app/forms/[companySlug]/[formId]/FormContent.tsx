@@ -243,37 +243,40 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
             )}
           </button>
         </form>
-      </main>
 
-      {/* FOOTER */}
-<footer className="bg-[#FAFAFA] border-t border-gray-200 p-6">
+      {/* USER PRIVACY DISCLAIMER (Outside footer, under submit button) */}
+<div className="text-center text-sm text-gray-600 mt-4">
+  <p>
+    By submitting this form, you consent to the collection and processing of your personal information.
+    {privacyPolicyUrl && companyName && (
+      <>
+        {' '}
+        <a 
+          href={privacyPolicyUrl} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-[#10101d] hover:text-[#010112] underline transition-colors"
+        >
+          Learn more about how {companyName} uses your information.
+        </a>
+      </>
+    )}
+  </p>
+</div>
+</main>
+
+{/* FOOTER */}
+<footer className="bg-white border-t border-gray-200 p-6 mt-8">
   <div className="max-w-3xl mx-auto space-y-4">
-    {/* Privacy Disclaimer */}
-    <div className="text-center text-sm text-gray-600">
+    {/* Zenith Digital Disclaimer */}
+    <div className="text-center text-xs text-gray-500">
       <p>
-        By submitting this form, you consent to the collection and processing of your personal information.
-        {privacyPolicyUrl && companyName && (
-          <>
-            {' '}
-            <a 
-              href={privacyPolicyUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[#5ccfa2] hover:text-[#45a881] underline transition-colors"
-            >
-              Learn more about how {companyName} uses your information.
-            </a>
-          </>
-        )}
+        This content is created by the owner of the form. The data you submit will be sent to the form owner. 
+        {/*Add the below if applicable*/}
+        {/* Zenith Digital is not responsible for the privacy or security practices of its customers, including those of this form owner.*/}
       </p>
     </div>
 
-    {/* Content Factory Disclaimer */}
-    <div className="text-center text-xs text-gray-500 border-t border-gray-200 pt-4">
-      <p className="mb-2">
-        This form is powered by Content Factory. Data is sent directly to the form owner's Google Drive and is not stored by Content Factory.
-      </p>
-    </div>
 
     {/* Branding */}
     <div className="flex items-center justify-between border-t border-gray-200 pt-4">
@@ -296,7 +299,7 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
         href="https://zenithdigi.co.za" 
         target="_blank" 
         rel="noopener noreferrer"
-        className="text-sm text-gray-600 hover:text-[#5ccfa2] transition-colors"
+        className="text-sm text-gray-600 hover:text-[#010112] transition-colors"
       >
         ⚡by Zenith Digital
       </a>

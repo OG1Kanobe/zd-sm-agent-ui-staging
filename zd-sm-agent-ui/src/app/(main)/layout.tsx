@@ -127,12 +127,7 @@ if (!user) {
   <h1 className="text-xl font-mono font-bold text-[#5ccfa2] w-full">
     The Content Factory
   </h1>
-  
-  {/* Tagline */}
-  <p className="text-xs text-white w-full mt-1">
-    by Zenith Digital
-  </p>
-</div>
+  </div>
                 
 <nav className="space-y-2">
   
