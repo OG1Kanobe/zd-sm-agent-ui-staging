@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Bell, Check, FileText, CheckCircle, Loader2, Settings, Volume2, VolumeX } from 'lucide-react';
+import { X, Bell, Check, FileText, CheckCircle, Loader2, Settings, Volume2, VolumeX, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
 import { DateTime } from 'luxon';
@@ -9,7 +9,7 @@ import { DateTime } from 'luxon';
 type Notification = {
   id: string;
   user_id: string;
-  type: 'post_generated' | 'post_published';
+  type: 'post_generated' | 'post_published' | 'error' | 'warning' | 'success' | 'info' | 'other';
   title: string;
   message: string;
   post_id: string | null;
@@ -406,20 +406,40 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`p-4 rounded-lg border cursor-pointer transition-all hover:border-[#5ccfa2] ${
-                    notification.is_read
-                      ? 'bg-[#010112] border-gray-800'
-                      : 'bg-[#1a1a2e] border-[#5ccfa2]/30'
-                  }`}
+                  className={`p-4 rounded-lg border cursor-pointer transition-all ${
+  notification.is_read
+    ? 'bg-[#010112] border-gray-800 hover:border-gray-700'
+    : notification.type === 'error'
+      ? 'bg-red-950/30 border-red-900/50 hover:border-red-700'
+      : notification.type === 'warning'
+        ? 'bg-orange-950/30 border-orange-900/50 hover:border-orange-700'
+        : 'bg-[#1a1a2e] border-[#5ccfa2]/30 hover:border-[#5ccfa2]'
+}`}
                 >
                   <div className="flex items-start space-x-3">
-                    <div className={`mt-1 ${notification.is_read ? 'text-gray-500' : 'text-[#5ccfa2]'}`}>
-                      {notification.type === 'post_generated' ? (
-                        <FileText className="w-5 h-5" />
-                      ) : (
-                        <CheckCircle className="w-5 h-5" />
-                      )}
-                    </div>
+                    <div className={`mt-1 ${
+  notification.is_read 
+    ? 'text-gray-500' 
+    : notification.type === 'error' 
+      ? 'text-red-500' 
+      : notification.type === 'warning'
+        ? 'text-orange-500'
+        : notification.type === 'success' || notification.type === 'post_generated' || notification.type === 'post_published'
+          ? 'text-[#5ccfa2]'
+          : 'text-gray-400'
+}`}>
+  {notification.type === 'post_generated' ? (
+    <FileText className="w-5 h-5" />
+  ) : notification.type === 'post_published' || notification.type === 'success' ? (
+    <CheckCircle className="w-5 h-5" />
+  ) : notification.type === 'error' ? (
+    <X className="w-5 h-5" />
+  ) : notification.type === 'warning' ? (
+    <AlertTriangle className="w-5 h-5" />
+  ) : (
+    <Bell className="w-5 h-5" />
+  )}
+</div>
                     
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-semibold mb-1 ${
