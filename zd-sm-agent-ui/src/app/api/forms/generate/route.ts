@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authenticateRequest, createAuthenticatedClient } from '@/lib/auth-middleware';
+import { supabaseServer } from '@/lib/supabaseServerClient'; 
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: NextRequest) {
@@ -86,6 +87,31 @@ const companySlug = companyName
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/^-+|-+$/g, '');
 
+  // Check if user has Google connected
+const { data: socialProfile } = await supabaseServer
+  .from('user_social_profiles')
+  .select('google_connected, google_access_token, google_refresh_token, google_token_expires_at')
+  .eq('client_id', user.id)
+  .single();
+
+if (!socialProfile?.google_connected) {
+  return NextResponse.json(
+    { error: 'Please connect Google Drive in Integrations before creating forms' },
+    { status: 400 }
+  );
+}
+
+// Get valid Google access token (refresh if needed)
+const { getGoogleAccessToken } = await import('@/lib/google-auth');
+const googleAccessToken = await getGoogleAccessToken(user.id);
+
+if (!googleAccessToken) {
+  return NextResponse.json(
+    { error: 'Failed to get Google access token. Please reconnect Google in Integrations.' },
+    { status: 401 }
+  );
+}
+
     // 6. BUILD WEBHOOK PAYLOAD FOR n8n
     const webhookPayload = {
       action: 'generate-form',
@@ -101,6 +127,9 @@ const companySlug = companyName
       platform: post.platform,
       prompt: post.prompt_used,
   topic: post.topic,
+
+  // Google Sheets
+  googleAccessToken: googleAccessToken, // ← NEW
       
       // User/Company info
       userId: user.id,

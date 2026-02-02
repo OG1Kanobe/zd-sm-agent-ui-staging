@@ -341,6 +341,7 @@ const ContentStudioPage = () => {
     const [socialReferenceImage, setSocialReferenceImage] = useState('');
     const [socialReferenceArticle, setSocialReferenceArticle] = useState('');
     const [socialContentType, setSocialContentType] = useState<'organic' | 'paid'>('organic');
+    const [socialWebSearch, setSocialWebSearch] = useState(false);
     const [generateFB, setGenerateFB] = useState(false);
     const [generateIG, setGenerateIG] = useState(false);
     const [generateLI, setGenerateLI] = useState(false);
@@ -574,20 +575,21 @@ const ContentStudioPage = () => {
 
         try {
             const payload = {
-                clientConfigId,
-                prompt: socialPrompt.trim(),
-                style: socialStyle,  // NEW
-                referenceType: socialReferenceType,
-                referenceUrl: socialReferenceType === 'url' ? socialReferenceUrl.trim() || null : null,
-                referenceVideo: socialReferenceType === 'video' ? socialReferenceVideo.trim() || null : null,
-                referenceImage: socialReferenceType === 'image' ? socialReferenceImage.trim() || null : null,
-                referenceArticle: socialReferenceType === 'article' ? socialReferenceArticle.trim() || null : null,
-                generate_FB: generateFB,
-                generate_IG: generateIG,
-                generate_LI: generateLI,
-                organic: socialContentType === 'organic',
-                paid: socialContentType === 'paid',
-            };
+                            clientConfigId,
+                            prompt: socialPrompt.trim(),
+                            style: socialStyle,
+                            referenceType: socialReferenceType,
+                            referenceUrl: socialReferenceType === 'url' ? socialReferenceUrl.trim() || null : null,
+                            referenceVideo: socialReferenceType === 'video' ? socialReferenceVideo.trim() || null : null,
+                            referenceImage: socialReferenceType === 'image' ? socialReferenceImage.trim() || null : null,
+                            referenceArticle: socialReferenceType === 'article' ? socialReferenceArticle.trim() || null : null,
+                            generate_FB: generateFB,
+                            generate_IG: generateIG,
+                            generate_LI: generateLI,
+                            organic: socialContentType === 'organic',
+                            paid: socialContentType === 'paid',
+                            web_search: socialReferenceType === 'none' && socialWebSearch, // Only true if reference is none AND checkbox checked
+                        };
 
             const response = await authenticatedFetch('/api/n8n/post-now', {
                 method: 'POST',
@@ -612,6 +614,7 @@ const ContentStudioPage = () => {
             setGenerateFB(false);
             setGenerateIG(false);
             setGenerateLI(false);
+            setSocialWebSearch(false);
         } catch (error) {
             console.error("Social Post Generation Error:", error);
             alert('Failed to send social post generation request.');
@@ -954,15 +957,30 @@ const ContentStudioPage = () => {
                                         <label className="text-sm text-gray-400 flex items-center">
                                             <Zap className="w-4 h-4 mr-2 text-[#5ccfa2]" /> Prompt <span className="text-red-500 ml-1">*</span>
                                         </label>
-                                        <input
-                                            type="text"
+                                        <textarea
                                             value={socialPrompt}
                                             onChange={(e) => setSocialPrompt(e.target.value)}
                                             placeholder="Describe what you want to create..."
-                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                            rows={4}
+                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2] resize-none"
                                             required
                                         />
                                     </div>
+
+                                    {/* Web Search Checkbox - Only when reference is 'none' */}
+                                        {socialReferenceType === 'none' && (
+                                            <label className="flex items-center space-x-3 cursor-pointer -mt-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={socialWebSearch}
+                                                    onChange={(e) => setSocialWebSearch(e.target.checked)}
+                                                    className="w-5 h-5 rounded border-2 border-gray-600 bg-[#010112] text-[#5ccfa2] focus:ring-2 focus:ring-[#5ccfa2] focus:ring-offset-0 checked:bg-[#5ccfa2] checked:border-[#5ccfa2] transition-all cursor-pointer"
+                                                />
+                                                <span className="text-sm text-gray-400">
+                                                    Enable web search
+                                                </span>
+                                            </label>
+                                        )}
 
                                     {/* Platform Selection */}
                                     <div className="flex flex-col space-y-3">
@@ -1006,28 +1024,34 @@ const ContentStudioPage = () => {
                                     </div>
 
                                     {/* Reference Type Dropdown */}
-                                    <div className="flex flex-col space-y-2">
-                                        <label className="text-sm text-gray-400 flex items-center">
-                                            Reference (Optional)
-                                        </label>
-                                        <select
-                                            value={socialReferenceType}
-                                            onChange={(e) => {
-                                                setSocialReferenceType(e.target.value as ReferenceType);
-                                                setSocialReferenceUrl('');
-                                                setSocialReferenceVideo('');
-                                                setSocialReferenceImage('');
-                                                setSocialReferenceArticle('');
-                                            }}
-                                            className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                        >
-                                            <option value="none">None</option>
-                                            <option value="url">URL</option>
-                                            <option value="video">Video</option>
-                                            <option value="image">Image</option>
-                                            <option value="article">Article Content</option>
-                                        </select>
-                                    </div>
+                                        <div className="flex flex-col space-y-2">
+                                            <label className="text-sm text-gray-400 flex items-center">
+                                                Reference (Optional)
+                                            </label>
+                                            <select
+                                                value={socialReferenceType}
+                                                onChange={(e) => {
+                                                    setSocialReferenceType(e.target.value as ReferenceType);
+                                                    setSocialReferenceUrl('');
+                                                    setSocialReferenceVideo('');
+                                                    setSocialReferenceImage('');
+                                                    setSocialReferenceArticle('');
+                                                    // Disable web search if reference is not 'none'
+                                                    if (e.target.value !== 'none') {
+                                                        setSocialWebSearch(false);
+                                                    }
+                                                }}
+                                                className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 text-base focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                                            >
+                                                <option value="none">None</option>
+                                                <option value="url">URL</option>
+                                                <option value="video">Video</option>
+                                                <option value="image">Image</option>
+                                                <option value="article">Article Content</option>
+                                            </select>
+                                        </div>
+
+                                    
 
                                     {/* Conditional Reference Fields */}
                                     {socialReferenceType === 'url' && (

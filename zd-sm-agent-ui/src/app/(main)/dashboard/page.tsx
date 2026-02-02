@@ -55,9 +55,17 @@ interface DashboardPost {
   cost_breakdown: any;
   animated_version_id: string | null;
   is_animated_version: boolean;
-  form_id: string | null;
-  form_name: string | null;
-  form_url: string | null;
+  form_id?: string;
+  form_url?: string;  // Keep this (it's still in posts_v2)
+  form?: {            // ← Add this
+    id: string;
+    form_name: string;
+    form_title: string;
+    form_url: string;
+    sheet_id: string;
+    view_count: number;
+    submission_count: number;
+  };
 }
 
 interface CardData {
@@ -207,11 +215,21 @@ const useDashboardData = (userId: string | undefined, filters: FilterState) => {
 
     try {
       let query = supabase
-        .from('posts_v2')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('discard', false)
-        .neq('status', 'In Progress');
+  .from('posts_v2')
+  .select(`
+    *,
+    form:forms!posts_v2_form_id_fkey (
+  id,
+  form_name,
+  form_url,
+  sheet_id,
+  view_count,
+  submission_count
+)
+  `)
+  .eq('user_id', userId)
+  .eq('discard', false)
+  .neq('status', 'In Progress');
         
       if (filters.fromDate) query = query.gte('created_at', `${filters.fromDate}T00:00:00`);
       if (filters.toDate) query = query.lte('created_at', `${filters.toDate}T23:59:59`);
@@ -634,7 +652,8 @@ const RightDrawer: React.FC<{
   card: CardData;
   onClose: () => void;
   onUpdate: () => void;
-}> = ({ card, onClose, onUpdate }) => {
+  googleConnected: boolean;
+}> = ({ card, onClose, onUpdate, googleConnected }) => {
   const { user } = useUserSession();
   const [width, setWidth] = useState(Math.max(500, window.innerWidth * 0.33));
   const [isResizing, setIsResizing] = useState(false);
@@ -765,7 +784,7 @@ setWidth(Math.max(500, Math.min(newWidth, window.innerWidth * 0.8)));
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
-      alert(`Form created: ${data.formName}`);
+      alert(`Your form is being generated`);
       onUpdate();
     } catch (err: any) {
       alert(`Failed: ${err.message}`);
@@ -939,19 +958,68 @@ setWidth(Math.max(500, Math.min(newWidth, window.innerWidth * 0.8)));
             )}
             
             {/* Lead Form */}
-            <div className="border-t border-gray-700 pt-3">
-              <h4 className="text-xs font-semibold text-gray-400 mb-2">LEAD FORM</h4>
-              {currentPost.form_id ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-white">Form: {currentPost.form_name}</p>
-                  <a href={currentPost.form_url || '#'} target="_blank" rel="noopener noreferrer" className="text-sm text-[#5ccfa2] hover:text-[#45a881]">View Form →</a>
-                </div>
-              ) : (
-                <button onClick={handleCreateForm} disabled={creatingForm} className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg font-semibold disabled:opacity-50">
-                  {creatingForm ? 'Creating...' : 'Create Lead Form'}
-                </button>
-              )}
-            </div>
+<div className="border-t border-gray-700 pt-3">
+  <h4 className="text-xs font-semibold text-gray-400 mb-2">LEAD FORM</h4>
+  
+  {currentPost.form_id && currentPost.form ? (
+    <div className="space-y-2">
+      <p className="text-sm text-white">
+        Form: {currentPost.form.form_name}
+      </p>
+      
+      {/* Form Stats */}
+      <div className="flex items-center space-x-4 text-xs text-gray-400">
+        <span>👁️ {currentPost.form.view_count || 0} views</span>
+        <span>📝 {currentPost.form.submission_count || 0} submissions</span>
+      </div>
+      
+      {/* Links */}
+      <div className="flex space-x-2">
+        <a 
+          href={currentPost.form.form_url || '#'} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex-1 px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm rounded-lg text-center"
+        >
+          View Form
+        </a>
+        
+        {currentPost.form.submission_count > 0 ? (
+          <a 
+            href={`https://docs.google.com/spreadsheets/d/${currentPost.form.sheet_id || ''}`}
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex-1 px-3 py-2 bg-[#5ccfa2] hover:bg-[#45a881] text-black text-sm rounded-lg text-center font-semibold"
+          >
+            View Submissions ({currentPost.form.submission_count})
+          </a>
+        ) : (
+          <div className="flex-1 px-3 py-2 bg-gray-800 text-gray-500 text-sm rounded-lg text-center">
+            No submissions yet
+          </div>
+        )}
+      </div>
+    </div>
+  ) : googleConnected ? (
+    <button 
+      onClick={handleCreateForm} 
+      disabled={creatingForm} 
+      className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg font-semibold disabled:opacity-50"
+    >
+      {creatingForm ? 'Creating...' : 'Create Lead Form'}
+    </button>
+  ) : (
+    <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
+      <p className="text-sm text-yellow-300">
+        Connect Google Drive in{' '}
+        <a href="/integrations" className="text-[#5ccfa2] underline hover:text-[#45a881]">
+          Integrations
+        </a>
+        {' '}to create lead forms
+      </p>
+    </div>
+  )}
+</div>
           </div>
         </div>
         
@@ -1129,10 +1197,28 @@ const DashboardPage = () => {
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
   const [publishPost, setPublishPost] = useState<DashboardPost | null>(null);
   const [feedbackPostId, setFeedbackPostId] = useState<string | null>(null);
+  const [googleConnected, setGoogleConnected] = useState(false);
 
   useEffect(() => {
     setPromptGroups(groupPostsByPrompt(posts));
   }, [posts]);
+
+  // Check if user has Google connected
+useEffect(() => {
+  const checkGoogle = async () => {
+    if (!userId) return;
+    
+    const { data } = await supabase
+      .from('user_social_profiles')
+      .select('google_connected')
+      .eq('client_id', userId)
+      .single();
+    
+    setGoogleConnected(data?.google_connected || false);
+  };
+  
+  checkGoogle();
+}, [userId]);
 
   const handleDelete = async (postId: string) => {
     if (!confirm('Delete this content?')) return;
@@ -1195,10 +1281,15 @@ const DashboardPage = () => {
       </div>
 
       <AnimatePresence>
-        {selectedCard && (
-          <RightDrawer card={selectedCard} onClose={() => setSelectedCard(null)} onUpdate={refetch} />
-        )}
-      </AnimatePresence>
+  {selectedCard && (
+    <RightDrawer 
+      card={selectedCard} 
+      onClose={() => setSelectedCard(null)} 
+      onUpdate={refetch}
+      googleConnected={googleConnected}
+    />
+  )}
+</AnimatePresence>
 
       <AnimatePresence>
         {publishPost && (
