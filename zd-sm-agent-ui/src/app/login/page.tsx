@@ -91,11 +91,11 @@ const AuthPage = () => {
         const distanceY = mousePosition.y - buttonCenterY;
         const distance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
 
-        const dodgeThreshold = 120;
+        const dodgeThreshold = 100;
 
         if (distance < dodgeThreshold) {
             const angle = Math.atan2(distanceY, distanceX);
-            const dodgeDistance = 80;
+            const dodgeDistance = 60;
             
             const newX = -Math.cos(angle) * dodgeDistance;
             const newY = -Math.sin(angle) * dodgeDistance;
@@ -116,7 +116,6 @@ const AuthPage = () => {
     const checkTrustedDevice = async (userIdToCheck: string): Promise<boolean> => {
         try {
             const deviceToken = localStorage.getItem('device_token');
-            
             if (!deviceToken) return false;
             
             const { data, error } = await supabase
@@ -128,7 +127,6 @@ const AuthPage = () => {
                 .limit(1);
 
             const deviceData = data && data.length > 0 ? data[0] : null;
-            
             if (error || !deviceData) return false;
 
             await supabase
@@ -334,7 +332,7 @@ const AuthPage = () => {
         );
     }
 
-    // OTP STEP - Keep original design
+    // OTP STEP
     if (step === 'otp') {
         return (
             <div className="min-h-screen bg-[#010112] flex justify-center items-center p-4">
@@ -401,88 +399,106 @@ const AuthPage = () => {
 
     // ANIMATED CREDENTIALS STEP
     return (
-        <div className="min-h-screen bg-[#010112] flex justify-center items-center p-4 overflow-hidden">
-            <div className="w-full max-w-6xl h-[600px] relative flex rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
+        <div className="min-h-screen bg-[#1a1a1a] flex justify-center items-center p-4">
+            <div className="w-full max-w-4xl h-[500px] relative rounded-2xl overflow-hidden shadow-2xl">
                 
-                {/* GRADIENT PANEL */}
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={mode}
-                        initial={{ x: mode === 'login' ? '-100%' : '100%' }}
-                        animate={{ x: 0 }}
-                        exit={{ x: mode === 'login' ? '100%' : '-100%' }}
-                        transition={{ duration: 0.6, ease: 'easeInOut' }}
-                        className={`absolute w-1/2 h-full ${mode === 'login' ? 'left-0' : 'right-0'}`}
+                {/* CONTAINER WITH DIAGONAL SPLIT */}
+                <motion.div
+                    className="relative w-full h-full"
+                    style={{
+                        clipPath: mode === 'login' 
+                            ? 'polygon(0 0, 50% 0, 100% 100%, 0 100%)'
+                            : 'polygon(50% 0, 100% 0, 100% 100%, 0 100%)'
+                    }}
+                    animate={{
+                        clipPath: mode === 'login' 
+                            ? 'polygon(0 0, 50% 0, 100% 100%, 0 100%)'
+                            : 'polygon(50% 0, 100% 0, 100% 100%, 0 100%)'
+                    }}
+                    transition={{ duration: 0.7, ease: 'easeInOut' }}
+                >
+                    {/* ORANGE GRADIENT SIDE */}
+                    <div 
+                        className="absolute inset-0"
                         style={{
-                            background: mode === 'login'
-                                ? 'linear-gradient(135deg, #5ccfa2 0%, #3a9d7d 50%, #2a7a5e 100%)'
-                                : 'linear-gradient(225deg, #5ccfa2 0%, #3a9d7d 50%, #2a7a5e 100%)'
+                            background: 'linear-gradient(135deg, #d9613a 0%, #c94d2a 100%)'
                         }}
-                    >
-                        <div className="h-full flex flex-col justify-center items-center p-12 text-white">
-                            <motion.h2
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.3 }}
-                                className="text-5xl font-['Space_Mono'] font-bold mb-4"
-                            >
-                                {mode === 'login' ? 'Welcome Back!' : 'Join Us Today!'}
-                            </motion.h2>
-                            <motion.p
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.4 }}
-                                className="text-lg font-['Inter_Tight'] text-center max-w-sm opacity-90"
-                            >
-                                {mode === 'login' 
-                                    ? 'Access your AI-powered content studio and continue creating amazing social media content.'
-                                    : 'Create your account and unlock the full power of AI-driven content creation for your brand.'
-                                }
-                            </motion.p>
-                        </div>
-                    </motion.div>
+                    />
+                </motion.div>
+
+                {/* DARK SIDE */}
+                <div className="absolute inset-0 bg-[#2a2a2a]" style={{ zIndex: -1 }} />
+
+                {/* WELCOME TEXT - LEFT SIDE (REGISTER MODE) */}
+                <AnimatePresence mode="wait">
+                    {mode === 'register' && (
+                        <motion.div
+                            key="welcome-left"
+                            initial={{ opacity: 0, x: -50 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -50 }}
+                            transition={{ duration: 0.5, delay: 0.4 }}
+                            className="absolute left-12 top-1/2 -translate-y-1/2 text-white z-10 max-w-xs"
+                        >
+                            <h2 className="text-5xl font-['Space_Mono'] font-bold mb-4">
+                                WELCOME!
+                            </h2>
+                            <p className="text-base font-['Inter_Tight'] opacity-90">
+                                We're delighted to have you here. If you need any assistance, feel free to reach out.
+                            </p>
+                        </motion.div>
+                    )}
                 </AnimatePresence>
 
-                {/* FORM PANEL */}
+                {/* WELCOME TEXT - RIGHT SIDE (LOGIN MODE) */}
                 <AnimatePresence mode="wait">
-                    <motion.div
-                        key={mode + '-form'}
-                        initial={{ x: mode === 'login' ? '100%' : '-100%', opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: mode === 'login' ? '-100%' : '100%', opacity: 0 }}
-                        transition={{ duration: 0.6, ease: 'easeInOut' }}
-                        className={`absolute w-1/2 h-full ${mode === 'login' ? 'right-0' : 'left-0'} bg-[#10101d] flex items-center justify-center p-12`}
-                    >
-                        <div className="w-full max-w-md">
-                            <h1 className="text-3xl font-['Space_Mono'] text-[#5ccfa2] text-center mb-8">
-                                {mode === 'login' ? 'Sign In' : 'Create Account'}
-                            </h1>
+                    {mode === 'login' && (
+                        <motion.div
+                            key="welcome-right"
+                            initial={{ opacity: 0, x: 50 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 50 }}
+                            transition={{ duration: 0.5, delay: 0.4 }}
+                            className="absolute right-12 top-1/2 -translate-y-1/2 text-white z-10 max-w-xs text-right"
+                        >
+                            <h2 className="text-5xl font-['Space_Mono'] font-bold mb-4">
+                                WELCOME BACK!
+                            </h2>
+                            <p className="text-base font-['Inter_Tight'] opacity-90">
+                                We are happy to have you with us again. If you need anything, we are here to help.
+                            </p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* FORM - LEFT SIDE (LOGIN MODE) */}
+                <AnimatePresence mode="wait">
+                    {mode === 'login' && (
+                        <motion.div
+                            key="form-left"
+                            initial={{ opacity: 0, x: -50 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -50 }}
+                            transition={{ duration: 0.5, delay: 0.4 }}
+                            className="absolute left-12 top-1/2 -translate-y-1/2 w-80 z-10"
+                        >
+                            <h1 className="text-3xl font-['Space_Mono'] text-white mb-6">Login</h1>
                             
                             <form onSubmit={handleAuth} className="space-y-4">
-                                {mode === 'register' && (
-                                    <AuthInput 
-                                        Icon={User} 
-                                        type="text" 
-                                        value={username} 
-                                        onChange={(e) => setUsername(e.target.value)} 
-                                        placeholder="Display Name"
-                                        required
-                                    />
-                                )}
-                                <AuthInput 
-                                    Icon={Mail} 
-                                    type="email" 
-                                    value={email} 
-                                    onChange={(e) => setEmail(e.target.value)} 
-                                    placeholder="Email Address"
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="Username"
+                                    className="w-full bg-transparent border-b border-gray-500 text-white py-2 px-2 font-['Inter_Tight'] focus:outline-none focus:border-[#d9613a] placeholder-gray-500"
                                     required
                                 />
-                                <AuthInput 
-                                    Icon={Lock} 
-                                    type="password" 
-                                    value={password} 
-                                    onChange={(e) => setPassword(e.target.value)} 
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     placeholder="Password"
+                                    className="w-full bg-transparent border-b border-gray-500 text-white py-2 px-2 font-['Inter_Tight'] focus:outline-none focus:border-[#d9613a] placeholder-gray-500"
                                     required
                                 />
 
@@ -490,11 +506,10 @@ const AuthPage = () => {
                                     <motion.div
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
-                                        className={`p-3 rounded-lg text-sm font-['Inter_Tight'] flex items-center ${
+                                        className={`p-3 rounded-lg text-sm font-['Inter_Tight'] ${
                                             error ? 'bg-red-900/50 text-red-300' : 'bg-green-900/50 text-green-300'
                                         }`}
                                     >
-                                        {error ? <XCircle className="w-4 h-4 mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
                                         {error || message}
                                     </motion.div>
                                 )}
@@ -512,43 +527,122 @@ const AuthPage = () => {
                                         stiffness: 300,
                                         damping: 20
                                     }}
-                                    className={`w-full flex items-center justify-center space-x-2 py-3 rounded-lg font-['Space_Mono'] font-semibold transition-all duration-200 shadow-md ${
-                                        loading 
-                                            ? 'bg-gray-600 cursor-not-allowed' 
-                                            : 'bg-[#5ccfa2] text-[#010112] hover:bg-[#4ab88e]'
-                                    }`}
+                                    className="w-full py-3 rounded-full font-['Space_Mono'] font-semibold text-white transition-all"
+                                    style={{
+                                        background: 'linear-gradient(90deg, #d9613a 0%, #c94d2a 100%)',
+                                        boxShadow: '0 4px 15px rgba(217, 97, 58, 0.4)'
+                                    }}
                                 >
-                                    {loading ? (
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                    ) : (
-                                        <>
-                                            {mode === 'login' ? <LogIn className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
-                                            <span>{mode === 'login' ? 'Sign In' : 'Create Account'}</span>
-                                        </>
-                                    )}
+                                    {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Login'}
                                 </motion.button>
                             </form>
 
-                            <button
-                                onClick={() => {
-                                    setMode(mode === 'login' ? 'register' : 'login');
-                                    setError(null);
-                                    setMessage(null);
-                                }}
-                                className="mt-6 w-full text-center text-sm font-['Inter_Tight'] text-gray-400 hover:text-[#5ccfa2] transition-colors duration-200"
-                            >
-                                {mode === 'login' ? "Need an account? Sign Up" : "Already have an account? Sign In"}
-                            </button>
-
-                            {mode === 'login' && (
-                                <a href="/forgot-password"
-                                    className="mt-2 block text-center text-sm font-['Inter_Tight'] text-gray-400 hover:text-[#5ccfa2] transition-colors duration-200"
+                            <p className="mt-4 text-center text-sm font-['Inter_Tight'] text-gray-400">
+                                Don't have an account?{' '}
+                                <button
+                                    onClick={() => {
+                                        setMode('register');
+                                        setError(null);
+                                        setMessage(null);
+                                    }}
+                                    className="text-[#d9613a] hover:underline font-semibold"
                                 >
-                                    Forgot your password?
-                                </a>
-                            )}
-                        </div>
-                    </motion.div>
+                                    Sign Up
+                                </button>
+                            </p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* FORM - RIGHT SIDE (REGISTER MODE) */}
+                <AnimatePresence mode="wait">
+                    {mode === 'register' && (
+                        <motion.div
+                            key="form-right"
+                            initial={{ opacity: 0, x: 50 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 50 }}
+                            transition={{ duration: 0.5, delay: 0.4 }}
+                            className="absolute right-12 top-1/2 -translate-y-1/2 w-80 z-10"
+                        >
+                            <h1 className="text-3xl font-['Space_Mono'] text-white mb-6">Register</h1>
+                            
+                            <form onSubmit={handleAuth} className="space-y-4">
+                                <input
+                                    type="text"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    placeholder="Username"
+                                    className="w-full bg-transparent border-b border-gray-500 text-white py-2 px-2 font-['Inter_Tight'] focus:outline-none focus:border-[#d9613a] placeholder-gray-500"
+                                    required
+                                />
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="Email"
+                                    className="w-full bg-transparent border-b border-gray-500 text-white py-2 px-2 font-['Inter_Tight'] focus:outline-none focus:border-[#d9613a] placeholder-gray-500"
+                                    required
+                                />
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Password"
+                                    className="w-full bg-transparent border-b border-gray-500 text-white py-2 px-2 font-['Inter_Tight'] focus:outline-none focus:border-[#d9613a] placeholder-gray-500"
+                                    required
+                                />
+
+                                {(error || message) && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className={`p-3 rounded-lg text-sm font-['Inter_Tight'] ${
+                                            error ? 'bg-red-900/50 text-red-300' : 'bg-green-900/50 text-green-300'
+                                        }`}
+                                    >
+                                        {error || message}
+                                    </motion.div>
+                                )}
+
+                                <motion.button
+                                    ref={buttonRef}
+                                    type="submit"
+                                    disabled={loading}
+                                    animate={{
+                                        x: buttonPosition.x,
+                                        y: buttonPosition.y
+                                    }}
+                                    transition={{
+                                        type: 'spring',
+                                        stiffness: 300,
+                                        damping: 20
+                                    }}
+                                    className="w-full py-3 rounded-full font-['Space_Mono'] font-semibold text-white transition-all"
+                                    style={{
+                                        background: 'linear-gradient(90deg, #d9613a 0%, #c94d2a 100%)',
+                                        boxShadow: '0 4px 15px rgba(217, 97, 58, 0.4)'
+                                    }}
+                                >
+                                    {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Register'}
+                                </motion.button>
+                            </form>
+
+                            <p className="mt-4 text-center text-sm font-['Inter_Tight'] text-gray-400">
+                                Don't have an account?{' '}
+                                <button
+                                    onClick={() => {
+                                        setMode('login');
+                                        setError(null);
+                                        setMessage(null);
+                                    }}
+                                    className="text-[#d9613a] hover:underline font-semibold"
+                                >
+                                    Sign In
+                                </button>
+                            </p>
+                        </motion.div>
+                    )}
                 </AnimatePresence>
             </div>
         </div>
