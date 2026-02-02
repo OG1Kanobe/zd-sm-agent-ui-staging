@@ -39,12 +39,12 @@ export async function POST(request: NextRequest) {
     const accessToken = await getGoogleAccessToken(form.user_id);
 
     if (!accessToken) {
-      console.error('[Form Submit] No valid Google token for user:', form.user_id);
-      return NextResponse.json(
-        { error: 'Unable to save submission' },
-        { status: 500 }
-      );
-    }
+  console.error('[Form Submit] No valid Google token for user:', form.user_id);
+  return NextResponse.json(
+    { error: 'Unable to save submission. Please contact form owner.' },
+    { status: 503 } // Service Unavailable - temporary issue with Google auth
+  );
+}
 
     // Build row data
     const timestamp = new Date().toISOString();
