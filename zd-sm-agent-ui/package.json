@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint"
@@ -19,6 +19,7 @@
     "date-fns-tz": "^3.2.0",
     "dayjs": "^1.11.19",
     "framer-motion": "^12.23.24",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.554.0",
     "luxon": "^3.7.2",
     "next": "^16.0.8",
@@ -30,6 +31,7 @@
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "^4.1.17",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/luxon": "^3.7.1",
     "@types/node": "^20",
     "@types/react": "^19",
