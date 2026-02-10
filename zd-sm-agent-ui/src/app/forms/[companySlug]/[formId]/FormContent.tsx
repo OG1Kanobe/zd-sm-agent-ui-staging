@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Loader2, CheckCircle } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { GoogleReCaptchaProvider, useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import Image from 'next/image';
 
 interface Question {
@@ -124,11 +124,13 @@ const QuestionField: React.FC<{
   }
 };
 
-export default function FormContent({ formData, companyName, companyLogoUrl, privacyPolicyUrl }: FormContentProps) {
+// ─── INNER FORM (has access to reCAPTCHA hook) ───────────────────────────────
+function FormInner({ formData, companyName, companyLogoUrl, privacyPolicyUrl }: FormContentProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,12 +138,25 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
     setError(null);
 
     try {
+      // 1. GET RECAPTCHA TOKEN
+      if (!executeRecaptcha) {
+        throw new Error('reCAPTCHA not ready. Please try again.');
+      }
+
+      const recaptchaToken = await executeRecaptcha('form_submit');
+
+      if (!recaptchaToken) {
+        throw new Error('reCAPTCHA verification failed. Please try again.');
+      }
+
+      // 2. SUBMIT FORM WITH RECAPTCHA TOKEN
       const response = await fetch('/api/forms/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formId: formData.id,
-          answers: answers
+          answers,
+          recaptchaToken // ← Send token to backend for verification
         })
       });
 
@@ -177,10 +192,8 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
       {/* HEADER */}
       <header className="bg-[#FAFAFA] p-6 md:p-8">
         <div className="max-w-3xl mx-auto">
-          {/* Company Branding */}
           {(companyLogoUrl || companyName) && (
             <div className="flex items-start justify-between mb-6">
-              {/* Logo - Left */}
               {companyLogoUrl && (
                 <div className="flex-shrink-0">
                   <img 
@@ -190,8 +203,6 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
                   />
                 </div>
               )}
-              
-              {/* Company Name - Right */}
               {companyName && (
                 <h2 className="text-xl md:text-2xl font-bold text-[#10101d] text-right">
                   {companyName}
@@ -200,7 +211,6 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
             </div>
           )}
           
-          {/* Form Title */}
           <h1 className="text-2xl md:text-3xl font-bold text-[#10101d] mb-2">
             {formData.form_title}
           </h1>
@@ -244,68 +254,81 @@ export default function FormContent({ formData, companyName, companyLogoUrl, pri
           </button>
         </form>
 
-      {/* USER PRIVACY DISCLAIMER (Outside footer, under submit button) */}
-<div className="text-center text-sm text-gray-600 mt-4">
-  <p>
-    By submitting this form, you consent to the collection and processing of your personal information.
-    {privacyPolicyUrl && companyName && (
-      <>
-        {' '}
-        <a 
-          href={privacyPolicyUrl} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-[#10101d] hover:text-[#010112] underline transition-colors"
-        >
-          Learn more about how {companyName} uses your information.
-        </a>
-      </>
-    )}
-  </p>
-</div>
-</main>
+        {/* RECAPTCHA NOTICE */}
+        <p className="text-center text-xs text-gray-400 mt-4">
+          Protected by reCAPTCHA.{' '}
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline">Privacy</a>
+          {' & '}
+          <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" className="underline">Terms</a>
+        </p>
 
-{/* FOOTER */}
-<footer className="bg-white border-t border-gray-200 p-6 mt-8">
-  <div className="max-w-3xl mx-auto space-y-4">
-    {/* Zenith Digital Disclaimer */}
-    <div className="text-center text-xs text-gray-500">
-      <p>
-        This content is created by the owner of the form. The data you submit will be sent to the form owner. 
-        {/*Add the below if applicable*/}
-        {/* Zenith Digital is not responsible for the privacy or security practices of its customers, including those of this form owner.*/}
-      </p>
-    </div>
+        {/* PRIVACY DISCLAIMER */}
+        <div className="text-center text-sm text-gray-600 mt-4">
+          <p>
+            By submitting this form, you consent to the collection and processing of your personal information.
+            {privacyPolicyUrl && companyName && (
+              <>
+                {' '}
+                <a 
+                  href={privacyPolicyUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[#10101d] hover:text-[#010112] underline transition-colors"
+                >
+                  Learn more about how {companyName} uses your information.
+                </a>
+              </>
+            )}
+          </p>
+        </div>
+      </main>
 
+      {/* FOOTER */}
+      <footer className="bg-white border-t border-gray-200 p-6 mt-8">
+        <div className="max-w-3xl mx-auto space-y-4">
+          <div className="text-center text-xs text-gray-500">
+            <p>
+              This content is created by the owner of the form. The data you submit will be sent to the form owner.
+            </p>
+          </div>
 
-    {/* Branding */}
-    <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-      {/* Content Factory Logo - Left */}
-      <a 
-        href="#" 
-        target="_blank" 
-        rel="noopener noreferrer"
-        className="flex-shrink-0"
-      >
-        <img 
-          src="https://placeholder-logo-url.com/content-factory.png" 
-          alt="Content Factory" 
-          className="h-8 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity"
-        />
-      </a>
-      
-      {/* Powered by Zenith Digital - Right */}
-      <a 
-        href="https://zenithdigi.co.za" 
-        target="_blank" 
-        rel="noopener noreferrer"
-        className="text-sm text-gray-600 hover:text-[#010112] transition-colors"
-      >
-        ⚡by Zenith Digital
-      </a>
+          <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+            <a 
+              href="#" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex-shrink-0"
+            >
+              <img 
+                src="https://placeholder-logo-url.com/content-factory.png" 
+                alt="Content Factory" 
+                className="h-8 w-auto object-contain opacity-70 hover:opacity-100 transition-opacity"
+              />
+            </a>
+            
+            <a 
+              href="https://zenithdigi.co.za" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-gray-600 hover:text-[#010112] transition-colors"
+            >
+              ⚡by Zenith Digital
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
-  </div>
-</footer>
-    </div>
+  );
+}
+
+// ─── OUTER WRAPPER (provides reCAPTCHA context) ───────────────────────────────
+export default function FormContent(props: FormContentProps) {
+  return (
+    <GoogleReCaptchaProvider
+      reCaptchaKey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
+      scriptProps={{ async: true, defer: true }}
+    >
+      <FormInner {...props} />
+    </GoogleReCaptchaProvider>
   );
 }
