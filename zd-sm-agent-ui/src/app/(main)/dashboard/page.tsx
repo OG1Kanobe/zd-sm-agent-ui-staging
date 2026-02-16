@@ -263,6 +263,48 @@ const useDashboardData = (userId: string | undefined, filters: FilterState) => {
   }, [userId, filters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Realtime subscription for new posts
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel('posts-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'posts_v2',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('[Dashboard] New post detected:', payload.new);
+          // Refetch data when a new post is inserted
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'posts_v2',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('[Dashboard] Post updated:', payload.new);
+          // Refetch data when a post is updated (e.g., published, caption edited)
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, fetchData]);
+
   return { stats, posts, loading, error, refetch: fetchData };
 };
 
