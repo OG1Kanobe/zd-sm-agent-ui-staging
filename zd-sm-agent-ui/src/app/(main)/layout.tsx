@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Zap, Home, Settings, Calendar, LogOut, Bell, Key, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, createContext } from 'react';
+import { Zap, Home, Settings, Calendar, LogOut, Bell, Key, Loader2, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -11,6 +11,12 @@ import NotificationPanel from '@/components/NotificationPanel';
 import SessionMonitor from '@/providers/SessionMonitor';
 import LaunchpadWrapper from '@/components/LaunchpadWrapper';
 import { getGreeting } from '@/lib/greetings';
+
+export const RefreshContext = createContext<{
+  setRefreshDashboard: React.Dispatch<React.SetStateAction<(() => void) | null>>;
+}>({
+  setRefreshDashboard: () => {},
+});
 
 export default function MainLayout({
   children,
@@ -26,6 +32,7 @@ const [greetingData, setGreetingData] = useState(() => getGreeting(userDisplayNa
 const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
 const [unreadCount, setUnreadCount] = useState(0);
 const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
+const [refreshDashboard, setRefreshDashboard] = useState<(() => void) | null>(null);
 
 // Update greeting when user data loads
 useEffect(() => {
@@ -109,7 +116,8 @@ if (!user) {
     <>
       <SessionMonitor />
       <LaunchpadWrapper>
-        <HighlightContext.Provider value={{ highlightedPostId, setHighlightedPostId }}>
+        <RefreshContext.Provider value={{ setRefreshDashboard }}>
+          <HighlightContext.Provider value={{ highlightedPostId, setHighlightedPostId }}>
           <div className="min-h-screen bg-[#010112] text-white flex">
             <aside className="w-64 bg-[#10101d] p-4 flex flex-col justify-between border-r border-gray-800 fixed h-full z-20">
               <div>
@@ -187,7 +195,19 @@ if (!user) {
 <p className="text-sm text-gray-400 mt-1">{greetingData.subtext}</p>
                   </div>
 
-                  <div className="relative">
+                  <div className="flex items-center gap-3">
+                    {/* Refresh Button - Only show on dashboard */}
+                    {pathname === '/dashboard' && refreshDashboard && (
+                      <button
+                        onClick={refreshDashboard}
+                        className="p-2 rounded-full hover:bg-[#10101d] transition-colors"
+                        aria-label="Refresh Dashboard"
+                      >
+                        <RefreshCw className="w-6 h-6 text-gray-400 hover:text-[#5ccfa2]" />
+                      </button>
+                    )}
+
+                    {/* Notification Bell */}
                     <button
                       onClick={() => setIsNotificationPanelOpen(true)}
                       className="relative p-2 rounded-full hover:bg-[#10101d] transition-colors"
@@ -220,6 +240,7 @@ if (!user) {
             )}
           </div>
         </HighlightContext.Provider>
+        </RefreshContext.Provider>
       </LaunchpadWrapper>
     </>
   );

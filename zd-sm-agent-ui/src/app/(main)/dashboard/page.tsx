@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import {
   Loader2, BookOpen, Send, XCircle, Filter, Eye, Trash2, 
   MoreVertical, Play, X, Check, Image as ImageIcon, Video as VideoIcon,
@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useUserSession } from '@/hooks/use-user-session';
 import { FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { authenticatedFetch } from '@/lib/api-client';
+import { RefreshContext } from '@/app/(main)/layout';
 import { TopBar } from '@/components/TopBar';
 
 type Platform = 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'none';
@@ -1183,6 +1184,7 @@ const DashboardPage = () => {
   const router = useRouter();
   const { user, loading: sessionLoading } = useUserSession();
   const userId = user?.id;
+  const { setRefreshDashboard } = useContext(RefreshContext);
 
   const [filters, setFilters] = useState<FilterState>({
     sourceType: 'all',
@@ -1194,6 +1196,12 @@ const DashboardPage = () => {
   });
 
   const { stats, posts, loading, error, refetch } = useDashboardData(userId, filters);
+
+  // Register refresh function with layout
+  useEffect(() => {
+    setRefreshDashboard(() => refetch);
+    return () => setRefreshDashboard(null);
+  }, [refetch, setRefreshDashboard]);
   const [promptGroups, setPromptGroups] = useState<PromptGroup[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
   const [publishPost, setPublishPost] = useState<DashboardPost | null>(null);
@@ -1255,12 +1263,7 @@ useEffect(() => {
   }
 
   return (
-  <>
-    <TopBar 
-      title="Dashboard" 
-      showRefresh={true}
-      onRefresh={refetch}
-    />
+  
     <div className="space-y-6">
 
       <SimpleStatCards stats={stats} />
@@ -1306,7 +1309,7 @@ useEffect(() => {
         )}
       </AnimatePresence>
     </div>
-    </>
+    
   );
 };
 
