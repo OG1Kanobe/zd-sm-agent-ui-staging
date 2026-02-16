@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Loader2, RefreshCw, BookOpen, Send, XCircle, Filter, Eye, Trash2, 
+  Loader2, BookOpen, Send, XCircle, Filter, Eye, Trash2, 
   MoreVertical, Play, X, Check, Image as ImageIcon, Video as VideoIcon,
   Edit, Save, MessageSquare, Maximize2, ChevronUp
 } from 'lucide-react';
@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useUserSession } from '@/hooks/use-user-session';
 import { FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { authenticatedFetch } from '@/lib/api-client';
+import { TopBar } from '@/components/TopBar';
 
 type Platform = 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'none';
 type SourceType = 'social_post' | 'standalone_image' | 'video' | 'video_source';
@@ -1254,11 +1255,13 @@ useEffect(() => {
   }
 
   return (
+  <>
+    <TopBar 
+      title="Dashboard" 
+      showRefresh={true}
+      onRefresh={refetch}
+    />
     <div className="space-y-6">
-      <div className="flex justify-between items-center pb-4 border-b border-gray-800">
-        <h2 className="text-3xl font-mono text-white">Dashboard</h2>
-        <button onClick={refetch} className="p-2 rounded-full hover:text-[#5ccfa2]"><RefreshCw className="w-6 h-6" /></button>
-      </div>
 
       <SimpleStatCards stats={stats} />
       <FilterBar filters={filters} onFiltersChange={setFilters} />
@@ -1303,6 +1306,7 @@ useEffect(() => {
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 };
 
