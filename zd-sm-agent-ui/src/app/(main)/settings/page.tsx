@@ -9,6 +9,7 @@ import {
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient'; 
 import { useUserSession } from '@/hooks/use-user-session';
+import { isAdmin } from '@/lib/adminCheck';
 
 type Config = {
     id: string | null; 
@@ -607,36 +608,38 @@ const SettingsPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-[#10101d] p-8 rounded-xl shadow-2xl border border-gray-800 space-y-8"
                     >
-                        {/* API KEYS */}
-                        <div>
-                            <h3 className="text-xl font-mono text-[#5ccfa2] mb-4 flex items-center">
-                                <Key className="w-5 h-5 mr-2" /> API Keys
-                            </h3>
-                            
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-sm text-gray-400 mb-2 block">OpenAI API Key</label>
-                                    <input
-                                        type="password"
-                                        value={openaiKey}
-                                        onChange={(e) => setOpenaiKey(e.target.value)}
-                                        placeholder="sk-..."
-                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 font-mono text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                    />
-                                </div>
+                        {/* API KEYS - ADMIN ONLY */}
+{isAdmin(userId) && (
+    <div>
+        <h3 className="text-xl font-mono text-[#5ccfa2] mb-4 flex items-center">
+            <Key className="w-5 h-5 mr-2" /> API Keys
+        </h3>
+        
+        <div className="space-y-4">
+            <div>
+                <label className="text-sm text-gray-400 mb-2 block">OpenAI API Key</label>
+                <input
+                    type="password"
+                    value={openaiKey}
+                    onChange={(e) => setOpenaiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 font-mono text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                />
+            </div>
 
-                                <div>
-                                    <label className="text-sm text-gray-400 mb-2 block">Gemini API Key</label>
-                                    <input
-                                        type="password"
-                                        value={geminiKey}
-                                        onChange={(e) => setGeminiKey(e.target.value)}
-                                        placeholder="AIza..."
-                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 font-mono text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                    />
-                                </div>
-                            </div>
-                        </div>
+            <div>
+                <label className="text-sm text-gray-400 mb-2 block">Gemini API Key</label>
+                <input
+                    type="password"
+                    value={geminiKey}
+                    onChange={(e) => setGeminiKey(e.target.value)}
+                    placeholder="AIza..."
+                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 font-mono text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                />
+            </div>
+        </div>
+    </div>
+)}
 
                         {/* GOOGLE OAUTH */}
                         <div>

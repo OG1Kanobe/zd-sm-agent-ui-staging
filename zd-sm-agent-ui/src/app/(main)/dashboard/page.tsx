@@ -13,7 +13,7 @@ import { useUserSession } from '@/hooks/use-user-session';
 import { FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { authenticatedFetch } from '@/lib/api-client';
 import { RefreshContext } from '@/app/(main)/layout';
-import { TopBar } from '@/components/TopBar';
+import { isAdmin } from '@/lib/adminCheck';
 
 type Platform = 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'none';
 type SourceType = 'social_post' | 'standalone_image' | 'video' | 'video_source';
@@ -932,7 +932,7 @@ setWidth(Math.max(500, Math.min(newWidth, window.innerWidth * 0.8)));
           )}
 
           {/* Admin Cost Breakdown */}
-          {user?.id === 'a1bb9dc6-09bf-4952-bbb2-4248a4e8f544' && currentPost.cost_breakdown && (
+          {isAdmin(user?.id) && currentPost.cost_breakdown && (
             <div className="border-t border-gray-700 pt-4">
               <h3 className="text-sm font-semibold text-gray-400 mb-2">Generation Cost (Admin)</h3>
               <div className="text-xs text-gray-300 space-y-1">
