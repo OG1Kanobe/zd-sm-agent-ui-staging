@@ -73,17 +73,18 @@ const LaunchpadWrapper: React.FC<{ children: React.ReactNode }> = ({ children })
   }
 
   // Show product tour (after onboarding or if tour not completed)
-  if (showTour || (!tourCompleted && !needsOnboarding)) {
-    return (
-      <>
-        {children}
-        <ProductTour
-          userId={user.id}
-          onComplete={handleTourComplete}
-        />
-      </>
-    );
-  }
+  // Show product tour (only when explicitly triggered after modal)
+if (showTour) {
+  return (
+    <>
+      {children}
+      <ProductTour
+        userId={user.id}
+        onComplete={handleTourComplete}
+      />
+    </>
+  );
+}
 
   // Normal flow
   return <>{children}</>;
