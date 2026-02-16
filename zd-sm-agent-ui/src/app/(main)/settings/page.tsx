@@ -373,7 +373,8 @@ const SettingsPage = () => {
             {/* TABS */}
             <div className="flex space-x-1 bg-[#10101d] p-1 rounded-lg border border-gray-800">
                 <button
-                    onClick={() => setActiveTab('company')}
+    data-tab="company"
+    onClick={() => setActiveTab('company')}
                     className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
                         activeTab === 'company' 
                             ? 'bg-[#5ccfa2] text-black' 
@@ -384,7 +385,8 @@ const SettingsPage = () => {
                     Company & Branding
                 </button>
                 <button
-                    onClick={() => setActiveTab('integrations')}
+    data-tab="integrations"
+    onClick={() => setActiveTab('integrations')}
                     className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
                         activeTab === 'integrations' 
                             ? 'bg-[#5ccfa2] text-black' 
@@ -642,10 +644,10 @@ const SettingsPage = () => {
 )}
 
                         {/* GOOGLE OAUTH */}
-                        <div>
-                            <h3 className="text-xl font-mono text-[#5ccfa2] mb-4 flex items-center">
-                                <LinkIcon className="w-5 h-5 mr-2" /> Google Drive & Sheets
-                            </h3>
+                        <div className="google-connection-card">
+    <h3 className="text-xl font-mono text-[#5ccfa2] mb-4 flex items-center">
+        <LinkIcon className="w-5 h-5 mr-2" /> Google Drive & Sheets
+    </h3>
 
                             {socialProfile?.google_connected ? (
                                 <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">

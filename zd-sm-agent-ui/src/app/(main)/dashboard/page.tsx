@@ -1305,8 +1305,7 @@ useEffect(() => {
   }
 
   return (
-  
-    <div className="space-y-6">
+    <div className="space-y-6 dashboard-content">
 
       <SimpleStatCards stats={stats} />
       <FilterBar filters={filters} onFiltersChange={setFilters} />

@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Step1CompanyInfo from './Step1CompanyInfo';
-import Step2ApiKeys from './Step2ApiKeys';
 import Step3Socials from './Step3Socials';
 import { authenticatedFetchJSON } from '@/lib/api-client';
 
@@ -38,7 +37,7 @@ const LaunchpadModal: React.FC<LaunchpadModalProps> = ({ userId, onComplete }) =
     logoFile: null,
   });
 
-  const totalSteps = 3;
+  const totalSteps = 2; // Reduced from 3 to 2 (removed API keys step)
 
   const handleNext = () => {
     if (currentStep < totalSteps) {
@@ -62,7 +61,6 @@ const LaunchpadModal: React.FC<LaunchpadModalProps> = ({ userId, onComplete }) =
 
       console.log('[Launchpad] Onboarding marked complete');
       onComplete();
-      router.push('/dashboard');
     } catch (error: any) {
       console.error('[Launchpad] Failed to complete onboarding:', error);
       alert('Failed to complete setup. Please try again.');
@@ -99,7 +97,7 @@ const LaunchpadModal: React.FC<LaunchpadModalProps> = ({ userId, onComplete }) =
         {/* Header with Progress */}
         <div className="bg-[#10101d] p-6 border-b border-gray-800">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-white">Welcome to Architect C</h2>
+            <h2 className="text-2xl font-bold text-white">Welcome to The Content Factory</h2>
             <div className="text-sm text-gray-400">
               Step {currentStep} of {totalSteps}
             </div>
@@ -138,25 +136,10 @@ const LaunchpadModal: React.FC<LaunchpadModalProps> = ({ userId, onComplete }) =
                   currentStep >= 2 ? 'bg-[#5ccfa2] text-black' : 'bg-gray-700 text-gray-400'
                 }`}
               >
-                {currentStep > 2 ? <Check className="w-4 h-4" /> : '2'}
+                2
               </div>
               <span className={`text-sm ${currentStep >= 2 ? 'text-white' : 'text-gray-500'}`}>
-                API Keys
-              </span>
-            </div>
-
-            <div className="flex-1 h-0.5 bg-gray-700 mx-4" />
-
-            <div className="flex items-center space-x-2">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                  currentStep >= 3 ? 'bg-[#5ccfa2] text-black' : 'bg-gray-700 text-gray-400'
-                }`}
-              >
-                3
-              </div>
-              <span className={`text-sm ${currentStep >= 3 ? 'text-white' : 'text-gray-500'}`}>
-                Socials
+                Connect Socials
               </span>
             </div>
           </div>
@@ -174,9 +157,6 @@ const LaunchpadModal: React.FC<LaunchpadModalProps> = ({ userId, onComplete }) =
               />
             )}
             {currentStep === 2 && (
-              <Step2ApiKeys userId={userId} onNext={handleNext} onBack={handleBack} />
-            )}
-            {currentStep === 3 && (
               <Step3Socials
                 onBack={handleBack}
                 onFinish={handleFinish}
@@ -190,9 +170,8 @@ const LaunchpadModal: React.FC<LaunchpadModalProps> = ({ userId, onComplete }) =
         {/* Footer Note */}
         <div className="bg-[#10101d] px-8 py-4 border-t border-gray-800">
           <p className="text-xs text-gray-500">
-            {currentStep === 1 && '💡 You can edit this information later in the Configs page'}
-            {currentStep === 2 && '💡 You can add or delete API keys later in the Settings page'}
-            {currentStep === 3 && '💡 You can manage your social connections anytime in the Publishing page'}
+            {currentStep === 1 && '💡 You can edit this information later in the Settings page'}
+            {currentStep === 2 && '💡 You can manage your social connections anytime in the Content Studio page'}
           </p>
         </div>
       </motion.div>
