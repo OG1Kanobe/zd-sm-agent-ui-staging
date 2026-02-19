@@ -39,14 +39,6 @@ const TOUR_STEPS: TourStep[] = [
     position: 'right'
   },
   {
-    target: '.google-connection-card',
-    title: 'Google Drive & Sheets',
-    description: "Connecting your Google account allows you to create lead forms based on the ads you create in-app - and qualify any leads with AI. Note: Google connections expire after 7 days for security, so you'll need to reconnect periodically.",
-    page: '/settings',
-    tab: 'integrations',
-    position: 'center'
-  },
-  {
     target: null,
     title: 'Advanced Features',
     description: "You can also generate animated versions of your images! Just click 'View' on any content card, scroll down, and hit 'Animate Image'. You can also create lead forms using the same steps.",
@@ -104,16 +96,7 @@ export const ProductTour: React.FC<ProductTourProps> = ({ userId, onComplete }) 
     }
   }, [step.page, pathname, router]);
 
-  // Set active tab for settings
-  useEffect(() => {
-    if (step.page === '/settings' && step.tab) {
-      // Trigger tab change if on settings page
-      setTimeout(() => {
-        const tabButton = document.querySelector(`button[data-tab="${step.tab}"]`) as HTMLButtonElement;
-        tabButton?.click();
-      }, 100);
-    }
-  }, [step.page, step.tab, pathname]);
+ 
 
   const handleNext = () => {
     if (currentStep < TOUR_STEPS.length - 1) {
