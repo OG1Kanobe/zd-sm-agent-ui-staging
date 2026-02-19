@@ -217,7 +217,7 @@ const SettingsPage = () => {
 
             // Fetch API keys
             const { data: keysData } = await supabase
-                .from('api_keys')
+                .from('user_api_keys')
                 .select('openai_key, gemini_key')
                 .eq('user_id', userId)
                 .single();
@@ -302,7 +302,7 @@ const SettingsPage = () => {
 
             // Save API keys
             const { error: keysError } = await supabase
-                .from('api_keys')
+                .from('user_api_keys')
                 .upsert({
                     user_id: userId,
                     openai_key: openaiKey || null,
