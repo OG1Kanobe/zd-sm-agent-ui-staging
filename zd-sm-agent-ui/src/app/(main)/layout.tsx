@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, createContext } from 'react';
-import { Zap, Home, Settings, Calendar, LogOut, Bell, Key, Loader2, RefreshCw } from 'lucide-react';
+import { Zap, Home, Settings, Calendar, LogOut, Bell, Key, Loader2, RefreshCw, Edit3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -11,6 +11,7 @@ import NotificationPanel from '@/components/NotificationPanel';
 import SessionMonitor from '@/providers/SessionMonitor';
 import LaunchpadWrapper from '@/components/LaunchpadWrapper';
 import { getGreeting } from '@/lib/greetings';
+import SetDisplayNameModal from '@/components/SetDisplayNameModal';
 
 export const RefreshContext = createContext<{
   setRefreshDashboard: React.Dispatch<React.SetStateAction<(() => void) | null>>;
@@ -24,71 +25,73 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-const { user } = useUserSession();
-const userId = user?.id;
-const userDisplayName = user?.user_metadata?.display_name || user?.email || 'Architect-Agent';
+  const { user } = useUserSession();
+  const userId = user?.id;
+  const userDisplayName = user?.user_metadata?.display_name || user?.email || 'Architect-Agent';
 
-const [greetingData, setGreetingData] = useState(() => getGreeting(userDisplayName));
-const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-const [unreadCount, setUnreadCount] = useState(0);
-const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
-const [refreshDashboard, setRefreshDashboard] = useState<(() => void) | null>(null);
+  const [greetingData, setGreetingData] = useState(() => getGreeting(userDisplayName));
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [highlightedPostId, setHighlightedPostId] = useState<string | null>(null);
+  const [refreshDashboard, setRefreshDashboard] = useState<(() => void) | null>(null);
+  const [showDisplayNameModal, setShowDisplayNameModal] = useState(false);
+  const hasDisplayName = !!user?.user_metadata?.display_name;
 
-// Update greeting when user data loads
-useEffect(() => {
-  if (user) {
-    setGreetingData(getGreeting(userDisplayName));
-  }
-}, [user, userDisplayName]);
-
-// Fetch unread notifications count
-useEffect(() => {
-  if (!userId) return;
-
-  const fetchUnreadCount = async () => {
-    try {
-      const { count, error } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('is_read', false);
-
-      if (error) throw error;
-      setUnreadCount(count || 0);
-    } catch (err) {
-      console.error('[Layout] Failed to fetch unread count:', err);
+  // Update greeting when user data loads
+  useEffect(() => {
+    if (user) {
+      setGreetingData(getGreeting(userDisplayName));
     }
-  };
+  }, [user, userDisplayName]);
 
-  fetchUnreadCount();
+  // Fetch unread notifications count
+  useEffect(() => {
+    if (!userId) return;
 
-  const channel = supabase
-    .channel('unread-count-channel')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${userId}`
-      },
-      () => fetchUnreadCount()
-    )
-    .subscribe();
+    const fetchUnreadCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('is_read', false);
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [userId]);
+        if (error) throw error;
+        setUnreadCount(count || 0);
+      } catch (err) {
+        console.error('[Layout] Failed to fetch unread count:', err);
+      }
+    };
 
-// Don't render until user is loaded (prevents name flash)
-if (!user) {
-  return (
-    <div className="min-h-screen bg-[#010112] flex items-center justify-center">
-      <Loader2 className="w-8 h-8 animate-spin text-[#5ccfa2]" />
-    </div>
-  );
-}
+    fetchUnreadCount();
+
+    const channel = supabase
+      .channel('unread-count-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`
+        },
+        () => fetchUnreadCount()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  // Don't render until user is loaded (prevents name flash)
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#010112] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#5ccfa2]" />
+      </div>
+    );
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -112,134 +115,153 @@ if (!user) {
     setTimeout(() => setHighlightedPostId(null), 3000);
   };
 
+  const handleDisplayNameUpdate = (newName: string) => {
+    setGreetingData(getGreeting(newName));
+  };
+
   return (
     <>
       <SessionMonitor />
       <LaunchpadWrapper>
         <RefreshContext.Provider value={{ setRefreshDashboard }}>
           <HighlightContext.Provider value={{ highlightedPostId, setHighlightedPostId }}>
-          <div className="min-h-screen bg-[#010112] text-white flex">
-            <aside className="w-64 bg-[#10101d] p-4 flex flex-col justify-between border-r border-gray-800 fixed h-full z-20">
-              <div>
-                <div className="mb-8 w-full">
-  {/* Logo Image */}
-  <div className="w-full h-relative mb-3 bg-none rounded-lg flex items-center justify-center">
-    <img 
-      src="https://edgkxonczgbvngdwpqei.supabase.co/storage/v1/object/public/logos/ZD/Content-Studio%20Logo%20-%20v2.png" 
-      alt="Content Factory Logo" 
-      className="w-full h-auto object-contain rounded-lg"
-    />
-  </div>
-  
-  {/* App Name */}
-  <h1 className="text-xl font-mono font-bold text-[#5ccfa2] w-full">
-    The Content Factory
-  </h1>
-  </div>
-                
-<nav className="space-y-2">
-  
-    <a href="/dashboard"
-    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
-      pathname === '/dashboard' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
-    }`}
-  >
-    <Home className="w-5 h-5 mr-3" />
-    Dashboard
-  </a>
-
-  
-    <a href="/publishing"
-    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
-      pathname === '/publishing' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
-    }`}
-  >
-    <Zap className="w-5 h-5 mr-3" />
-    Content Studio
-  </a>
-
-  
-    <a href="/settings"
-    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
-      pathname === '/settings' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
-    }`}
-  >
-    <Settings className="w-5 h-5 mr-3" />
-    Settings
-  </a>
-</nav>
-
-              </div>
-
-              <div className="pt-4 border-t border-gray-700">
-                <p className="text-sm text-gray-500 mb-2 truncate">
-                  User: <span className="text-gray-300 font-mono">{userDisplayName}</span>
-                </p>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center w-full px-4 py-3 rounded-lg text-red-400 hover:bg-gray-700 transition-colors font-medium"
-                >
-                  <LogOut className="w-5 h-5 mr-3" />
-                  Sign Out
-                </button>
-              </div>
-            </aside>
-
-            <div className="flex-1 ml-64">
-              <header className="sticky top-0 z-10 bg-[#010112] pt-8 px-8 pb-4 border-b border-gray-800 shadow-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h1 className="text-4xl font-extrabold text-white font-mono">
-  {greetingData.greeting} <span className="text-[#5ccfa2]">{greetingData.userName}</span>
-</h1>
-<p className="text-sm text-gray-400 mt-1">{greetingData.subtext}</p>
+            <div className="min-h-screen bg-[#010112] text-white flex">
+              <aside className="w-64 bg-[#10101d] p-4 flex flex-col justify-between border-r border-gray-800 fixed h-full z-20">
+                <div>
+                  <div className="mb-8 w-full">
+                    {/* Logo Image */}
+                    <div className="w-full h-relative mb-3 bg-none rounded-lg flex items-center justify-center">
+                      <img 
+                        src="https://edgkxonczgbvngdwpqei.supabase.co/storage/v1/object/public/logos/ZD/Content-Studio%20Logo%20-%20v2.png" 
+                        alt="Content Factory Logo" 
+                        className="w-full h-auto object-contain rounded-lg"
+                      />
+                    </div>
+                    
+                    {/* App Name */}
+                    <h1 className="text-xl font-mono font-bold text-[#5ccfa2] w-full">
+                      The Content Factory
+                    </h1>
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    {/* Refresh Button - Only show on dashboard */}
-                    {pathname === '/dashboard' && refreshDashboard && (
-                      <button
-                        onClick={refreshDashboard}
-                        className="p-2 rounded-full hover:bg-[#10101d] transition-colors"
-                        aria-label="Refresh Dashboard"
-                      >
-                        <RefreshCw className="w-6 h-6 text-gray-400 hover:text-[#5ccfa2]" />
-                      </button>
-                    )}
-
-                    {/* Notification Bell */}
-                    <button
-                      onClick={() => setIsNotificationPanelOpen(true)}
-                      className="relative p-2 rounded-full hover:bg-[#10101d] transition-colors"
+                  
+                  <nav className="space-y-2">
+                    <a href="/dashboard"
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
+                        pathname === '/dashboard' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
+                      }`}
                     >
-                      <Bell className="w-6 h-6 text-gray-400 hover:text-[#5ccfa2]" />
-                      {unreadCount > 0 && (
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
-                        >
-                          {unreadCount > 9 ? '9+' : unreadCount}
-                        </motion.span>
-                      )}
-                    </button>
-                  </div>
+                      <Home className="w-5 h-5 mr-3" />
+                      Dashboard
+                    </a>
+
+                    <a href="/publishing"
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
+                        pathname === '/publishing' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
+                      }`}
+                    >
+                      <Zap className="w-5 h-5 mr-3" />
+                      Content Studio
+                    </a>
+
+                    <a href="/settings"
+                      className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors font-medium ${
+                        pathname === '/settings' ? 'bg-[#5ccfa2] text-black shadow-lg' : 'text-gray-300 hover:bg-gray-700'
+                      }`}
+                    >
+                      <Settings className="w-5 h-5 mr-3" />
+                      Settings
+                    </a>
+                  </nav>
                 </div>
-              </header>
 
-              <main className="p-8">{children}</main>
-            </div>
+                <div className="pt-4 border-t border-gray-700">
+                  <p className="text-sm text-gray-500 mb-2 truncate">
+                    User: <span className="text-gray-300 font-mono">{userDisplayName}</span>
+                  </p>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center w-full px-4 py-3 rounded-lg text-red-400 hover:bg-gray-700 transition-colors font-medium"
+                  >
+                    <LogOut className="w-5 h-5 mr-3" />
+                    Sign Out
+                  </button>
+                </div>
+              </aside>
 
-            {userId && (
-              <NotificationPanel
-                isOpen={isNotificationPanelOpen}
-                onClose={() => setIsNotificationPanelOpen(false)}
-                userId={userId}
-                onNotificationClick={handleNotificationClick}
+              <div className="flex-1 ml-64">
+                <header className="sticky top-0 z-10 bg-[#010112] pt-8 px-8 pb-4 border-b border-gray-800 shadow-xl">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-4xl font-extrabold text-white font-mono">
+                        {greetingData.greeting} <span className="text-[#5ccfa2]">{greetingData.userName}</span>
+                      </h1>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-sm text-gray-400">{greetingData.subtext}</p>
+                        {!hasDisplayName && (
+                          <button
+                            onClick={() => setShowDisplayNameModal(true)}
+                            className="text-xs text-[#5ccfa2] hover:text-[#45a881] flex items-center gap-1 underline"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            Set display name
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {/* Refresh Button - Only show on dashboard */}
+                      {pathname === '/dashboard' && refreshDashboard && (
+                        <button
+                          onClick={refreshDashboard}
+                          className="p-2 rounded-full hover:bg-[#10101d] transition-colors"
+                          aria-label="Refresh Dashboard"
+                        >
+                          <RefreshCw className="w-6 h-6 text-gray-400 hover:text-[#5ccfa2]" />
+                        </button>
+                      )}
+
+                      {/* Notification Bell */}
+                      <button
+                        onClick={() => setIsNotificationPanelOpen(true)}
+                        className="relative p-2 rounded-full hover:bg-[#10101d] transition-colors"
+                      >
+                        <Bell className="w-6 h-6 text-gray-400 hover:text-[#5ccfa2]" />
+                        {unreadCount > 0 && (
+                          <motion.span
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
+                          >
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </motion.span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </header>
+
+                <main className="p-8">{children}</main>
+              </div>
+
+              {userId && (
+                <NotificationPanel
+                  isOpen={isNotificationPanelOpen}
+                  onClose={() => setIsNotificationPanelOpen(false)}
+                  userId={userId}
+                  onNotificationClick={handleNotificationClick}
+                />
+              )}
+
+              {/* Display Name Modal */}
+              <SetDisplayNameModal
+                isOpen={showDisplayNameModal}
+                onClose={() => setShowDisplayNameModal(false)}
+                currentEmail={user?.email || ''}
+                onSuccess={handleDisplayNameUpdate}
               />
-            )}
-          </div>
-        </HighlightContext.Provider>
+            </div>
+          </HighlightContext.Provider>
         </RefreshContext.Provider>
       </LaunchpadWrapper>
     </>
