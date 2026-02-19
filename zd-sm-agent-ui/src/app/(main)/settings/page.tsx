@@ -215,17 +215,22 @@ const SettingsPage = () => {
                 setSocialProfile(socialData);
             }
 
-            // Fetch API keys
-            const { data: keysData } = await supabase
-                .from('user_api_keys')
-                .select('openai_key, gemini_key')
-                .eq('user_id', userId)
-                .single();
-
-            if (keysData) {
-                setOpenaiKey(keysData.openai_key || '');
-                setGeminiKey(keysData.gemini_key || '');
-            }
+// Fetch API keys using your API endpoint
+try {
+    const response = await fetch('/api/user-keys/list');
+    if (response.ok) {
+        const { keys } = await response.json();
+        
+        const openaiKey = keys.find((k: any) => k.provider === 'openai');
+        const geminiKey = keys.find((k: any) => k.provider === 'gemini');
+        
+        // Show masked keys (last 4 characters only)
+        setOpenaiKey(openaiKey ? `••••${openaiKey.lastFour}` : '');
+        setGeminiKey(geminiKey ? `••••${geminiKey.lastFour}` : '');
+    }
+} catch (error) {
+    console.error('Failed to fetch API keys:', error);
+}
 
             setIsLoading(false);
         };
@@ -300,16 +305,46 @@ const SettingsPage = () => {
 
             if (configError) throw configError;
 
-            // Save API keys
-            const { error: keysError } = await supabase
-                .from('user_api_keys')
-                .upsert({
-                    user_id: userId,
-                    openai_key: openaiKey || null,
-                    gemini_key: geminiKey || null
-                }, { onConflict: 'user_id' });
+// Save API keys using encrypted endpoint (only if user entered new keys)
+const saveKeyPromises = [];
 
-            if (keysError) throw keysError;
+// Only save if the key doesn't start with •••• (meaning it's a new key, not a masked one)
+if (openaiKey && !openaiKey.startsWith('••••')) {
+    saveKeyPromises.push(
+        fetch('/api/user-keys/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                provider: 'openai',
+                apiKey: openaiKey,
+            }),
+        })
+    );
+}
+
+if (geminiKey && !geminiKey.startsWith('••••')) {
+    saveKeyPromises.push(
+        fetch('/api/user-keys/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                provider: 'gemini',
+                apiKey: geminiKey,
+            }),
+        })
+    );
+}
+
+// Wait for all key saves to complete
+if (saveKeyPromises.length > 0) {
+    const keyResults = await Promise.all(saveKeyPromises);
+    
+    // Check if any failed
+    const failed = keyResults.filter(r => !r.ok);
+    if (failed.length > 0) {
+        throw new Error('Failed to save one or more API keys');
+    }
+}
 
             setSaveStatus('saved');
         } catch (e) {
@@ -627,6 +662,11 @@ const SettingsPage = () => {
                     placeholder="sk-..."
                     className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 font-mono text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                    {openaiKey.startsWith('••••') 
+                        ? 'Key saved (last 4 chars shown). Enter a new key to update.' 
+                        : 'Enter your OpenAI API key'}
+                </p>
             </div>
 
             <div>
@@ -638,6 +678,11 @@ const SettingsPage = () => {
                     placeholder="AIza..."
                     className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 font-mono text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                    {geminiKey.startsWith('••••') 
+                        ? 'Key saved (last 4 chars shown). Enter a new key to update.' 
+                        : 'Enter your Gemini API key'}
+                </p>
             </div>
         </div>
     </div>
