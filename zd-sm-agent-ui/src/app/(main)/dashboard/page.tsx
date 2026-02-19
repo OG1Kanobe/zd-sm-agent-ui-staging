@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import {
-  Loader2, RefreshCw, BookOpen, Send, XCircle, Filter, Eye, Trash2, 
+  Loader2, BookOpen, Send, XCircle, Filter, Eye, Trash2, 
   MoreVertical, Play, X, Check, Image as ImageIcon, Video as VideoIcon,
   Edit, Save, MessageSquare, Maximize2, ChevronUp
 } from 'lucide-react';
@@ -12,6 +12,8 @@ import { supabase } from '@/lib/supabaseClient';
 import { useUserSession } from '@/hooks/use-user-session';
 import { FaFacebook, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { authenticatedFetch } from '@/lib/api-client';
+import { RefreshContext } from '@/app/(main)/layout';
+import { isAdmin } from '@/lib/adminCheck';
 
 type Platform = 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'none';
 type SourceType = 'social_post' | 'standalone_image' | 'video' | 'video_source';
@@ -261,6 +263,48 @@ const useDashboardData = (userId: string | undefined, filters: FilterState) => {
   }, [userId, filters]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Realtime subscription for new posts
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel('posts-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'posts_v2',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('[Dashboard] New post detected:', payload.new);
+          // Refetch data when a new post is inserted
+          fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'posts_v2',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('[Dashboard] Post updated:', payload.new);
+          // Refetch data when a post is updated (e.g., published, caption edited)
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, fetchData]);
+
   return { stats, posts, loading, error, refetch: fetchData };
 };
 
@@ -930,7 +974,7 @@ setWidth(Math.max(500, Math.min(newWidth, window.innerWidth * 0.8)));
           )}
 
           {/* Admin Cost Breakdown */}
-          {user?.id === 'a1bb9dc6-09bf-4952-bbb2-4248a4e8f544' && currentPost.cost_breakdown && (
+          {isAdmin(user?.id) && currentPost.cost_breakdown && (
             <div className="border-t border-gray-700 pt-4">
               <h3 className="text-sm font-semibold text-gray-400 mb-2">Generation Cost (Admin)</h3>
               <div className="text-xs text-gray-300 space-y-1">
@@ -1182,6 +1226,7 @@ const DashboardPage = () => {
   const router = useRouter();
   const { user, loading: sessionLoading } = useUserSession();
   const userId = user?.id;
+  const { setRefreshDashboard } = useContext(RefreshContext);
 
   const [filters, setFilters] = useState<FilterState>({
     sourceType: 'all',
@@ -1193,6 +1238,12 @@ const DashboardPage = () => {
   });
 
   const { stats, posts, loading, error, refetch } = useDashboardData(userId, filters);
+
+  // Register refresh function with layout
+  useEffect(() => {
+    setRefreshDashboard(() => refetch);
+    return () => setRefreshDashboard(null);
+  }, [refetch, setRefreshDashboard]);
   const [promptGroups, setPromptGroups] = useState<PromptGroup[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardData | null>(null);
   const [publishPost, setPublishPost] = useState<DashboardPost | null>(null);
@@ -1254,11 +1305,7 @@ useEffect(() => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center pb-4 border-b border-gray-800">
-        <h2 className="text-3xl font-mono text-white">Dashboard</h2>
-        <button onClick={refetch} className="p-2 rounded-full hover:text-[#5ccfa2]"><RefreshCw className="w-6 h-6" /></button>
-      </div>
+    <div className="space-y-6 dashboard-content">
 
       <SimpleStatCards stats={stats} />
       <FilterBar filters={filters} onFiltersChange={setFilters} />
@@ -1303,6 +1350,7 @@ useEffect(() => {
         )}
       </AnimatePresence>
     </div>
+    
   );
 };
 

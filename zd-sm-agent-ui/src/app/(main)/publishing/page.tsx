@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { useUserSession } from '@/hooks/use-user-session'; 
 import { DateTime } from 'luxon';
 import { authenticatedFetch } from '@/lib/api-client';
+import { isAdmin } from '@/lib/adminCheck';
 
 type Config = {
     id: string | null; 
@@ -322,7 +323,7 @@ const ContentStudioPage = () => {
     const router = useRouter();
     const { user, loading: sessionLoading, session } = useUserSession(); 
     const userId = user?.id;
-    const isAdmin = user?.id === 'a1bb9dc6-09bf-4952-bbb2-4248a4e8f544'; //- making video gen tab availablke only to tiro user id - remove later//
+    const isAdminUser = isAdmin(user?.id); //- making video gen tab available only to admin users
     const jwtToken = session?.access_token || '';
 
     const [configs, setConfigs] = useState<Config | null>(null);
@@ -902,7 +903,7 @@ const ContentStudioPage = () => {
                             </button>
 
 {/*START- MAKING VIDEO TAB RENDER ONLY FOR TIRO ID - REMOVE '{isAdmin && (' AND '(Admin)' WHEN OPEN TO ALL USERS*/}  
-                          {isAdmin && ( 
+                          {isAdminUser && ( 
         <button
             onClick={() => setActiveTab('video')}
             className={`flex-1 py-4 px-6 rounded-lg font-semibold transition-all flex items-center justify-center ${

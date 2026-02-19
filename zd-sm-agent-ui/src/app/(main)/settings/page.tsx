@@ -9,6 +9,7 @@ import {
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient'; 
 import { useUserSession } from '@/hooks/use-user-session';
+import { isAdmin } from '@/lib/adminCheck';
 
 type Config = {
     id: string | null; 
@@ -214,17 +215,22 @@ const SettingsPage = () => {
                 setSocialProfile(socialData);
             }
 
-            // Fetch API keys
-            const { data: keysData } = await supabase
-                .from('api_keys')
-                .select('openai_key, gemini_key')
-                .eq('user_id', userId)
-                .single();
-
-            if (keysData) {
-                setOpenaiKey(keysData.openai_key || '');
-                setGeminiKey(keysData.gemini_key || '');
-            }
+// Fetch API keys using your API endpoint
+try {
+    const response = await fetch('/api/user-keys/list');
+    if (response.ok) {
+        const { keys } = await response.json();
+        
+        const openaiKey = keys.find((k: any) => k.provider === 'openai');
+        const geminiKey = keys.find((k: any) => k.provider === 'gemini');
+        
+        // Show masked keys (last 4 characters only)
+        setOpenaiKey(openaiKey ? `••••${openaiKey.lastFour}` : '');
+        setGeminiKey(geminiKey ? `••••${geminiKey.lastFour}` : '');
+    }
+} catch (error) {
+    console.error('Failed to fetch API keys:', error);
+}
 
             setIsLoading(false);
         };
@@ -299,16 +305,46 @@ const SettingsPage = () => {
 
             if (configError) throw configError;
 
-            // Save API keys
-            const { error: keysError } = await supabase
-                .from('api_keys')
-                .upsert({
-                    user_id: userId,
-                    openai_key: openaiKey || null,
-                    gemini_key: geminiKey || null
-                }, { onConflict: 'user_id' });
+// Save API keys using encrypted endpoint (only if user entered new keys)
+const saveKeyPromises = [];
 
-            if (keysError) throw keysError;
+// Only save if the key doesn't start with •••• (meaning it's a new key, not a masked one)
+if (openaiKey && !openaiKey.startsWith('••••')) {
+    saveKeyPromises.push(
+        fetch('/api/user-keys/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                provider: 'openai',
+                apiKey: openaiKey,
+            }),
+        })
+    );
+}
+
+if (geminiKey && !geminiKey.startsWith('••••')) {
+    saveKeyPromises.push(
+        fetch('/api/user-keys/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                provider: 'gemini',
+                apiKey: geminiKey,
+            }),
+        })
+    );
+}
+
+// Wait for all key saves to complete
+if (saveKeyPromises.length > 0) {
+    const keyResults = await Promise.all(saveKeyPromises);
+    
+    // Check if any failed
+    const failed = keyResults.filter(r => !r.ok);
+    if (failed.length > 0) {
+        throw new Error('Failed to save one or more API keys');
+    }
+}
 
             setSaveStatus('saved');
         } catch (e) {
@@ -372,7 +408,8 @@ const SettingsPage = () => {
             {/* TABS */}
             <div className="flex space-x-1 bg-[#10101d] p-1 rounded-lg border border-gray-800">
                 <button
-                    onClick={() => setActiveTab('company')}
+    data-tab="company"
+    onClick={() => setActiveTab('company')}
                     className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
                         activeTab === 'company' 
                             ? 'bg-[#5ccfa2] text-black' 
@@ -383,7 +420,8 @@ const SettingsPage = () => {
                     Company & Branding
                 </button>
                 <button
-                    onClick={() => setActiveTab('integrations')}
+    data-tab="integrations"
+    onClick={() => setActiveTab('integrations')}
                     className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
                         activeTab === 'integrations' 
                             ? 'bg-[#5ccfa2] text-black' 
@@ -607,45 +645,67 @@ const SettingsPage = () => {
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-[#10101d] p-8 rounded-xl shadow-2xl border border-gray-800 space-y-8"
                     >
-                        {/* API KEYS */}
-                        <div>
-                            <h3 className="text-xl font-mono text-[#5ccfa2] mb-4 flex items-center">
-                                <Key className="w-5 h-5 mr-2" /> API Keys
-                            </h3>
-                            
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-sm text-gray-400 mb-2 block">OpenAI API Key</label>
-                                    <input
-                                        type="password"
-                                        value={openaiKey}
-                                        onChange={(e) => setOpenaiKey(e.target.value)}
-                                        placeholder="sk-..."
-                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 font-mono text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                    />
-                                </div>
+                        {/* API KEYS - ADMIN ONLY */}
+{isAdmin(userId) && (
+    <div>
+        <h3 className="text-xl font-mono text-[#5ccfa2] mb-4 flex items-center">
+            <Key className="w-5 h-5 mr-2" /> API Keys
+        </h3>
+        
+        <div className="space-y-4">
+            <div>
+                <label className="text-sm text-gray-400 mb-2 block">OpenAI API Key</label>
+                <input
+                    type="password"
+                    value={openaiKey}
+                    onChange={(e) => setOpenaiKey(e.target.value)}
+                    placeholder="sk-..."
+                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 font-mono text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                    {openaiKey.startsWith('••••') 
+                        ? 'Key saved (last 4 chars shown). Enter a new key to update.' 
+                        : 'Enter your OpenAI API key'}
+                </p>
+            </div>
 
-                                <div>
-                                    <label className="text-sm text-gray-400 mb-2 block">Gemini API Key</label>
-                                    <input
-                                        type="password"
-                                        value={geminiKey}
-                                        onChange={(e) => setGeminiKey(e.target.value)}
-                                        placeholder="AIza..."
-                                        className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 font-mono text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
-                                    />
-                                </div>
-                            </div>
-                        </div>
+            <div>
+                <label className="text-sm text-gray-400 mb-2 block">Gemini API Key</label>
+                <input
+                    type="password"
+                    value={geminiKey}
+                    onChange={(e) => setGeminiKey(e.target.value)}
+                    placeholder="AIza..."
+                    className="w-full bg-[#010112] border border-gray-700 text-white rounded-lg p-3 font-mono text-sm focus:ring-[#5ccfa2] focus:border-[#5ccfa2]"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                    {geminiKey.startsWith('••••') 
+                        ? 'Key saved (last 4 chars shown). Enter a new key to update.' 
+                        : 'Enter your Gemini API key'}
+                </p>
+            </div>
+        </div>
+    </div>
+)}
 
                         {/* GOOGLE OAUTH */}
-                        <div>
-                            <h3 className="text-xl font-mono text-[#5ccfa2] mb-4 flex items-center">
-                                <LinkIcon className="w-5 h-5 mr-2" /> Google Drive & Sheets
-                            </h3>
+                        <div className="google-connection-card">
+    <h3 className="text-xl font-mono text-[#5ccfa2] mb-4 flex items-center">
+        <LinkIcon className="w-5 h-5 mr-2" /> Google Drive & Sheets
+    </h3>
 
-                            {socialProfile?.google_connected ? (
-                                <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+    {/* Permanent Note */}
+    <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mb-4">
+        <p className="text-sm text-blue-300">
+            💡 <strong>Why connect Google?</strong> Connecting your Google account allows you to create lead forms based on the ads you create in-app - and qualify any leads with AI.
+        </p>
+        <p className="text-xs text-blue-400 mt-2">
+            Note: Google connections expire after 7 days for security, so you'll need to manually reconnect periodically.
+        </p>
+    </div>
+
+    {socialProfile?.google_connected ? (
+        <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm text-green-300 font-semibold">✓ Connected</p>
