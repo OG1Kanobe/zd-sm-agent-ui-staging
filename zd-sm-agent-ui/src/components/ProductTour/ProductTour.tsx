@@ -83,18 +83,18 @@ export const ProductTour: React.FC<ProductTourProps> = ({ userId, onComplete }) 
     findElement();
   }, [step, pathname]);
 
-  // Navigate to required page
-  useEffect(() => {
-    if (pathname !== step.page) {
-      setIsNavigating(true);
-      router.push(step.page);
-      
-      // Wait for navigation
-      setTimeout(() => {
-        setIsNavigating(false);
-      }, 300);
-    }
-  }, [step.page, pathname, router]);
+// Navigate to required page
+useEffect(() => {
+  if (pathname !== step.page && !isNavigating) {
+    setIsNavigating(true);
+    router.push(step.page);
+    
+    // Wait for navigation to complete
+    setTimeout(() => {
+      setIsNavigating(false);
+    }, 800); // Increased delay for navigation
+  }
+}, [step.page, pathname, router, isNavigating]);
 
  
 
@@ -192,28 +192,28 @@ export const ProductTour: React.FC<ProductTourProps> = ({ userId, onComplete }) 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-black/70 pointer-events-auto"
+          className="absolute inset-0 bg-black/45 pointer-events-auto"
           onClick={handleSkip}
         />
 
         {/* Spotlight on target element */}
-        {targetElement && !step.isPopup && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute pointer-events-none"
-            style={{
-              top: targetElement.getBoundingClientRect().top - 8,
-              left: targetElement.getBoundingClientRect().left - 8,
-              width: targetElement.getBoundingClientRect().width + 16,
-              height: targetElement.getBoundingClientRect().height + 16,
-              boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.7)',
-              border: '3px solid #5ccfa2',
-              borderRadius: '12px',
-              zIndex: 9998
-            }}
-          />
-        )}
+{targetElement && !step.isPopup && (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    className="absolute pointer-events-none"
+    style={{
+      top: targetElement.getBoundingClientRect().top - 8,
+      left: targetElement.getBoundingClientRect().left - 8,
+      width: targetElement.getBoundingClientRect().width + 16,
+      height: targetElement.getBoundingClientRect().height + 16,
+      boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.4)',
+      border: '3px solid #5ccfa2',
+      borderRadius: '12px',
+      zIndex: 9998
+    }}
+  />
+)}
 
         {/* Tooltip */}
         <motion.div
